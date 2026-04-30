@@ -1,0 +1,3 @@
+class SearchMedia {
+  const SearchMedia();
+}

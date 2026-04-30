@@ -1,0 +1,3 @@
+class SaveProgress {
+  const SaveProgress();
+}

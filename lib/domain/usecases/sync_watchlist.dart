@@ -1,0 +1,3 @@
+class SyncWatchlist {
+  const SyncWatchlist();
+}
