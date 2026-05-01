@@ -16,22 +16,49 @@ import 'widgets/hero_banner.dart';
 
 enum BrowseSection { home, movies, tv, anime, sports, myList }
 
+extension BrowseSectionRoute on BrowseSection {
+  String get routePath {
+    return switch (this) {
+      BrowseSection.home => '/',
+      BrowseSection.movies => '/movies',
+      BrowseSection.tv => '/tv-shows',
+      BrowseSection.anime => '/anime',
+      BrowseSection.sports => '/sports',
+      BrowseSection.myList => '/my-list',
+    };
+  }
+}
+
 class HomeScreen extends ConsumerStatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({this.initialSection = BrowseSection.home, super.key});
+
+  final BrowseSection initialSection;
 
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  BrowseSection _section = BrowseSection.home;
+  late BrowseSection _section;
   final _scrollController = ScrollController();
   double _scrollOffset = 0;
 
   @override
   void initState() {
     super.initState();
+    _section = widget.initialSection;
     _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialSection != widget.initialSection) {
+      _section = widget.initialSection;
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(0);
+      }
+    }
   }
 
   @override
@@ -78,6 +105,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             opacity: chromeOpacity,
             onSelected: (section) {
               setState(() => _section = section);
+              context.go(section.routePath);
               if (_scrollController.hasClients) {
                 _scrollController.animateTo(
                   0,
@@ -227,11 +255,10 @@ class _HomeContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final watchlistAsync = ref.watch(watchlistProvider);
-    final watchlistItems = watchlistAsync
-        .maybeWhen(
-          data: (records) => records.map((r) => r.toMedia()).toList(),
-          orElse: () => const <MediaItem>[],
-        );
+    final watchlistItems = watchlistAsync.maybeWhen(
+      data: (records) => records.map((r) => r.toMedia()).toList(),
+      orElse: () => const <MediaItem>[],
+    );
 
     final myListRows = <ContentCategory>[
       if (feed.continueWatching.isNotEmpty)
@@ -301,8 +328,10 @@ class _HomeContent extends ConsumerWidget {
                     items: row.items,
                     onLoadMore: section == BrowseSection.myList
                         ? null
-                        : (page) =>
-                            repository.loadMoreCategory(row.title, page: page),
+                        : (page) => repository.loadMoreCategory(
+                            row.title,
+                            page: page,
+                          ),
                   ),
               ],
             ),

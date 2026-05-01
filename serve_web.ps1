@@ -1,7 +1,6 @@
-# Serve the built web bundle on the LAN so you can open it from your iPhone,
-# laptop, anything else on the same WiFi.
+# Serve the built Flutter web bundle on the LAN with SPA fallback.
 #
-# Usage:  powershell -ExecutionPolicy Bypass -File .\serve_web.ps1
+# Usage: powershell -ExecutionPolicy Bypass -File .\serve_web.ps1
 # Defaults to port 8088. Pass -Port 9000 to override.
 
 param(
@@ -14,18 +13,16 @@ if (-not (Test-Path $webDir)) {
     exit 1
 }
 
-# Find a usable Python.
-$python = Get-Command python3 -ErrorAction SilentlyContinue
-if (-not $python) { $python = Get-Command python -ErrorAction SilentlyContinue }
-if (-not $python) {
-    Write-Host "ERROR: python3 not on PATH. Install from python.org or use Windows Store."
+$node = Get-Command node -ErrorAction SilentlyContinue
+if (-not $node) {
+    Write-Host "ERROR: Node.js is required for SPA fallback serving."
     exit 1
 }
 
-# Show the LAN URLs.
 $ip = (Get-NetIPAddress -AddressFamily IPv4 |
         Where-Object { $_.PrefixOrigin -eq 'Dhcp' -or $_.PrefixOrigin -eq 'Manual' } |
         Where-Object { $_.IPAddress -notmatch '^169\.|^127\.' } |
+        Sort-Object @{Expression = { if ($_.PrefixOrigin -eq 'Dhcp') { 0 } else { 1 } } }, InterfaceAlias |
         Select-Object -First 1).IPAddress
 
 Write-Host ""
@@ -39,5 +36,7 @@ Write-Host ""
 Write-Host "  Press Ctrl+C to stop."
 Write-Host ""
 
-Set-Location $webDir
-& $python.Source -m http.server $Port --bind 0.0.0.0
+$env:STREAMVAULT_WEB_DIR = $webDir
+$env:STREAMVAULT_WEB_PORT = "$Port"
+
+& $node.Source (Join-Path $PSScriptRoot 'tools\serve_web.mjs')

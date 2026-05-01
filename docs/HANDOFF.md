@@ -6,7 +6,7 @@ These notes are written for a follow-on CLI/code agent that needs to understand,
 
 StreamVault is a local-first, premium media browsing and playback shell built with Flutter. Windows desktop and iOS are the current primary targets. TV targets should be kept in mind through focusable controls, remote-friendly navigation, and separation between UI, repositories, and platform-specific playback concerns.
 
-External playback-provider connectors are intentionally not part of this repository handoff. The app keeps the native player screen and direct URL route so an authorized provider module can be added later without changing the browse/detail/player architecture.
+The current app includes local-first browse/detail/player flows plus provider-handoff surfaces. Keep secrets out of the repository and keep the Windows native lane separate from the iOS web/PWA lane.
 
 ## Runtime Flow
 
@@ -14,6 +14,7 @@ External playback-provider connectors are intentionally not part of this reposit
 2. `ProviderScope` overrides `supabaseConfiguredProvider` so settings and sync know whether cloud calls should run.
 3. `StreamVaultApp` builds the GoRouter routes:
    - `/`: home browse shell.
+   - `/movies`, `/tv-shows`, `/anime`, `/sports`, `/my-list`: direct PWA routes for browse sections.
    - `/search`: search page.
    - `/detail`: title detail page, usually receiving a `MediaItem` in `state.extra`.
    - `/player`: media_kit player shell; accepts an optional direct `url` query parameter.
@@ -37,7 +38,9 @@ External playback-provider connectors are intentionally not part of this reposit
 - `lib/presentation/home/widgets/media_row.dart`: horizontal row and incremental loading behavior.
 - `lib/presentation/detail/detail_screen.dart`: large detail view, episode browser, playback handoff panel.
 - `lib/presentation/player/player_screen.dart`: media_kit player, track sheets, progress sync hooks.
+- `lib/presentation/sports/sports_screen.dart`: live sports scoreboard and provider-handoff UI.
 - `supabase/schema.sql`: profiles, watchlist, continue_watching, favorites, indexes, RLS, profile trigger.
+- `docs/DEPLOYMENT.md`: Windows build, iOS/PWA local serving, Cloudflare Pages, and Supabase setup.
 
 ## Windows Build Checklist
 

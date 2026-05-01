@@ -34,6 +34,7 @@ migrate_working_dir/
 /build/
 /coverage/
 qa_screenshots/
+.wrangler/
 
 # Symbolication related
 app.*.symbols

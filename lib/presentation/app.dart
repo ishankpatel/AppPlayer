@@ -14,9 +14,33 @@ final supabaseConfiguredProvider = Provider<bool>((ref) => false);
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
-    initialLocation: '/',
     routes: [
       GoRoute(path: '/', builder: (context, state) => const HomeScreen()),
+      GoRoute(
+        path: '/movies',
+        builder: (context, state) =>
+            const HomeScreen(initialSection: BrowseSection.movies),
+      ),
+      GoRoute(
+        path: '/tv-shows',
+        builder: (context, state) =>
+            const HomeScreen(initialSection: BrowseSection.tv),
+      ),
+      GoRoute(
+        path: '/anime',
+        builder: (context, state) =>
+            const HomeScreen(initialSection: BrowseSection.anime),
+      ),
+      GoRoute(
+        path: '/sports',
+        builder: (context, state) =>
+            const HomeScreen(initialSection: BrowseSection.sports),
+      ),
+      GoRoute(
+        path: '/my-list',
+        builder: (context, state) =>
+            const HomeScreen(initialSection: BrowseSection.myList),
+      ),
       GoRoute(
         path: '/settings',
         builder: (context, state) => const SettingsScreen(),
