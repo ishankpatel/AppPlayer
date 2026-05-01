@@ -45,3 +45,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local-only logs and run artifacts (never commit)
+analyze_out.txt
+build_out.txt
+web_build.txt
+web_create.txt
+.web_pid.txt

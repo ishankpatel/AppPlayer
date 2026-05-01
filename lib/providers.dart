@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'data/datasources/cinemeta_remote.dart';
+import 'data/datasources/espn_remote.dart';
 import 'data/datasources/supabase_sync.dart';
 import 'data/datasources/tmdb_remote.dart';
 import 'data/local/local_database.dart';
@@ -31,6 +32,10 @@ final tmdbRemoteProvider = Provider<TmdbRemoteDataSource>((ref) {
 
 final cinemetaRemoteProvider = Provider<CinemetaRemoteDataSource>((ref) {
   return CinemetaRemoteDataSource(ref.watch(dioProvider));
+});
+
+final espnRemoteProvider = Provider<EspnRemoteDataSource>((ref) {
+  return EspnRemoteDataSource(ref.watch(dioProvider));
 });
 
 final mediaRepositoryProvider = Provider<MediaRepository>((ref) {

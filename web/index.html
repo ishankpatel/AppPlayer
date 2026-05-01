@@ -18,21 +18,50 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="StreamVault - premium catalog browser with TMDB metadata, live ESPN scoreboards, watchlist sync, and Real-Debrid resolver.">
+  <meta name="theme-color" content="#060607">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="streamvault">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="StreamVault">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>streamvault</title>
+  <title>StreamVault</title>
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    html, body { margin: 0; padding: 0; background-color: #060607; color: #f5f5f5; height: 100%; }
+    #splash {
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center; flex-direction: column;
+      background: radial-gradient(ellipse at center, #1a1a1c 0%, #060607 70%);
+      z-index: 9999;
+      font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+      transition: opacity 320ms ease-out;
+    }
+    #splash.fading { opacity: 0; }
+    #splash .brand { color: #FF5722; font-weight: 900; font-size: 36px; letter-spacing: 1px; margin-bottom: 18px; }
+    #splash .ring {
+      width: 36px; height: 36px;
+      border: 3px solid rgba(255, 87, 34, 0.18);
+      border-top-color: #FF5722;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
 </head>
 <body>
+  <div id="splash">
+    <div class="brand">STREAMVAULT</div>
+    <div class="ring"></div>
+  </div>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader
@@ -42,5 +71,14 @@
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
   <script src="flutter_bootstrap.js" async></script>
+  <script>
+    // Hide the splash once Flutter has rendered the first frame.
+    window.addEventListener('flutter-first-frame', function () {
+      var s = document.getElementById('splash');
+      if (!s) return;
+      s.classList.add('fading');
+      setTimeout(function () { s.remove(); }, 360);
+    });
+  </script>
 </body>
 </html>

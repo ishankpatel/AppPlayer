@@ -1,11 +1,237 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/media_item.dart';
 import '../../common/smart_network_image.dart';
+import '../../watchlist/watchlist_provider.dart';
 
-class HeroBanner extends StatelessWidget {
+class HeroBanner extends StatefulWidget {
   const HeroBanner({
+    required this.items,
+    required this.onPlay,
+    required this.onMoreInfo,
+    this.advanceDuration = const Duration(seconds: 9),
+    super.key,
+  });
+
+  final List<MediaItem> items;
+  final void Function(MediaItem item) onPlay;
+  final void Function(MediaItem item) onMoreInfo;
+  final Duration advanceDuration;
+
+  @override
+  State<HeroBanner> createState() => _HeroBannerState();
+}
+
+class _HeroBannerState extends State<HeroBanner>
+    with TickerProviderStateMixin {
+  late final AnimationController _progress;
+  int _index = 0;
+  bool _hovered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _progress = AnimationController(vsync: this, duration: widget.advanceDuration)
+      ..addStatusListener((status) {
+        if (status == AnimationStatus.completed && mounted) {
+          _advance(1);
+        }
+      });
+    if (widget.items.length > 1) _progress.forward();
+  }
+
+  @override
+  void didUpdateWidget(covariant HeroBanner oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.items.length != widget.items.length) {
+      if (_index >= widget.items.length) _index = 0;
+      _restartProgress();
+    }
+  }
+
+  @override
+  void dispose() {
+    _progress.dispose();
+    super.dispose();
+  }
+
+  void _advance(int delta) {
+    if (widget.items.length <= 1) return;
+    setState(() {
+      _index = (_index + delta) % widget.items.length;
+      if (_index < 0) _index += widget.items.length;
+    });
+    _restartProgress();
+  }
+
+  void _restartProgress() {
+    if (widget.items.length <= 1) {
+      _progress.stop();
+      return;
+    }
+    _progress
+      ..reset()
+      ..forward();
+  }
+
+  void _setHover(bool value) {
+    if (_hovered == value) return;
+    setState(() => _hovered = value);
+    if (value) {
+      _progress.stop();
+    } else if (widget.items.length > 1) {
+      _progress.forward();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.items.isEmpty) return const SizedBox.shrink();
+    final size = MediaQuery.sizeOf(context);
+    final height = size.width < 720
+        ? 620.0
+        : (size.height * 0.72).clamp(560.0, 720.0).toDouble();
+    final item = widget.items[_index.clamp(0, widget.items.length - 1)];
+
+    return MouseRegion(
+      onEnter: (_) => _setHover(true),
+      onExit: (_) => _setHover(false),
+      child: SizedBox(
+        height: height,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 700),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              child: _AnimatedBackdrop(
+                key: ValueKey('hero-${item.tmdbId}-${item.mediaType.name}'),
+                item: item,
+                progress: _progress,
+              ),
+            ),
+            const _HeroScrim(),
+            Align(
+              alignment: Alignment.bottomLeft,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 480),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder: (child, animation) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0, 0.04),
+                        end: Offset.zero,
+                      ).animate(animation),
+                      child: child,
+                    ),
+                  );
+                },
+                child: _HeroCopy(
+                  key: ValueKey('copy-${item.tmdbId}-${item.mediaType.name}'),
+                  item: item,
+                  onPlay: () => widget.onPlay(item),
+                  onMoreInfo: () => widget.onMoreInfo(item),
+                ),
+              ),
+            ),
+            Positioned(
+              right: 56,
+              bottom: 66,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 520),
+                switchInCurve: Curves.easeOutCubic,
+                child: _Poster(
+                  key: ValueKey('poster-${item.tmdbId}'),
+                  item: item,
+                ),
+              ),
+            ),
+            if (widget.items.length > 1)
+              Positioned(
+                left: 34,
+                right: 34,
+                bottom: 24,
+                child: _HeroIndicator(
+                  count: widget.items.length,
+                  index: _index,
+                  progress: _progress,
+                ),
+              ),
+            if (widget.items.length > 1)
+              Positioned.fill(
+                child: IgnorePointer(
+                  ignoring: !_hovered,
+                  child: AnimatedOpacity(
+                    opacity: _hovered ? 1 : 0,
+                    duration: const Duration(milliseconds: 220),
+                    child: _HeroNav(
+                      onPrev: () => _advance(-1),
+                      onNext: () => _advance(1),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HeroScrim extends StatelessWidget {
+  const _HeroScrim();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Stack(
+      fit: StackFit.expand,
+      children: [
+        // Very soft left wash so the title/copy stays legible without
+        // veiling the artwork. Fades to fully transparent before the
+        // 50% mark.
+        IgnorePointer(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [
+                  Color(0x99060607),
+                  Color(0x33060607),
+                  Color(0x00000000),
+                ],
+                stops: [0, 0.22, 0.48],
+              ),
+            ),
+          ),
+        ),
+        // Razor-thin bottom blend — only 12% — to soften the seam where
+        // the row strip starts. No more dark band across the artwork.
+        IgnorePointer(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [AppColors.ink, Color(0x00060607)],
+                stops: [0, 0.12],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HeroCopy extends ConsumerWidget {
+  const _HeroCopy({
     required this.item,
     required this.onPlay,
     required this.onMoreInfo,
@@ -17,132 +243,261 @@ class HeroBanner extends StatelessWidget {
   final VoidCallback onMoreInfo;
 
   @override
-  Widget build(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    final height = size.width < 720
-        ? 620.0
-        : (size.height * 0.72).clamp(560.0, 720.0).toDouble();
-
-    return SizedBox(
-      height: height,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          _Backdrop(item: item),
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-                colors: [
-                  Color(0xFA060607),
-                  Color(0xB0060607),
-                  Color(0x14060607),
-                ],
-                stops: [0, 0.44, 1],
-              ),
-            ),
-          ),
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.bottomCenter,
-                end: Alignment.topCenter,
-                colors: [AppColors.ink, Color(0x00060607)],
-                stops: [0, 0.46],
-              ),
-            ),
-          ),
-          Align(
-            alignment: Alignment.bottomLeft,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(34, 0, 34, 66),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 640),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (item.isNew) const _Badge('New Release'),
-                        if (item.isNew) const SizedBox(width: 10),
-                        _Badge(
-                          item.mediaType == MediaType.tv
-                              ? 'Binge-ready series'
-                              : 'Cinema-ready movie',
-                          subdued: true,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      item.title,
-                      style: Theme.of(context).textTheme.displayMedium
-                          ?.copyWith(
-                            fontWeight: FontWeight.w900,
-                            height: 0.96,
-                            letterSpacing: 0,
-                          ),
-                    ),
-                    const SizedBox(height: 14),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 8,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        _MetaText(item.releaseYear),
-                        const _Dot(),
-                        _MetaText(item.runtimeLabel ?? item.mediaTypeLabel),
-                        const _Dot(),
-                        _MetaText(item.genre),
-                        const _Dot(),
-                        _MetaText(
-                          'TMDB ${item.voteAverage.toStringAsFixed(1)}',
-                          accent: true,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      item.overview,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: AppColors.text.withValues(alpha: 0.76),
-                        height: 1.45,
-                      ),
-                    ),
-                    const SizedBox(height: 22),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: [
-                        FilledButton.icon(
-                          onPressed: onPlay,
-                          icon: const Icon(Icons.play_arrow_rounded),
-                          label: const Text('Play'),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: onMoreInfo,
-                          icon: const Icon(Icons.info_outline_rounded),
-                          label: const Text('More Info'),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: () {},
-                          icon: const Icon(Icons.add_rounded),
-                          label: const Text('My List'),
-                        ),
-                      ],
-                    ),
-                  ],
+  Widget build(BuildContext context, WidgetRef ref) {
+    final saved = ref.watch(
+      isInWatchlistProvider((tmdbId: item.tmdbId, mediaType: item.mediaType)),
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(34, 0, 34, 90),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 640),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (item.isNew) const _Badge('New Release'),
+                if (item.isNew) const SizedBox(width: 10),
+                _Badge(
+                  item.mediaType == MediaType.tv
+                      ? 'Binge-ready series'
+                      : 'Cinema-ready movie',
+                  subdued: true,
                 ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              item.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                fontWeight: FontWeight.w900,
+                height: 0.96,
+                letterSpacing: 0,
+                shadows: const [
+                  Shadow(
+                    color: Color(0xCC000000),
+                    offset: Offset(0, 2),
+                    blurRadius: 14,
+                  ),
+                  Shadow(
+                    color: Color(0x66000000),
+                    offset: Offset(0, 0),
+                    blurRadius: 28,
+                  ),
+                ],
               ),
             ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                _MetaText(item.releaseYear),
+                const _Dot(),
+                _MetaText(item.runtimeLabel ?? item.mediaTypeLabel),
+                const _Dot(),
+                _MetaText(item.genre),
+                const _Dot(),
+                _MetaText(
+                  'TMDB ${item.voteAverage.toStringAsFixed(1)}',
+                  accent: true,
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              item.overview,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: AppColors.text.withValues(alpha: 0.92),
+                height: 1.45,
+                shadows: const [
+                  Shadow(
+                    color: Color(0xAA000000),
+                    offset: Offset(0, 1),
+                    blurRadius: 10,
+                  ),
+                  Shadow(
+                    color: Color(0x66000000),
+                    offset: Offset(0, 0),
+                    blurRadius: 18,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 22),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                FilledButton.icon(
+                  onPressed: onPlay,
+                  icon: const Icon(Icons.play_arrow_rounded),
+                  label: const Text('Play'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: onMoreInfo,
+                  icon: const Icon(Icons.info_outline_rounded),
+                  label: const Text('More Info'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () =>
+                      ref.read(watchlistProvider.notifier).toggle(item),
+                  icon: Icon(
+                    saved ? Icons.check_rounded : Icons.add_rounded,
+                  ),
+                  label: Text(saved ? 'In My List' : 'My List'),
+                  style: saved
+                      ? OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.gold,
+                          side: const BorderSide(color: AppColors.gold),
+                        )
+                      : null,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AnimatedBackdrop extends StatelessWidget {
+  const _AnimatedBackdrop({
+    required this.item,
+    required this.progress,
+    super.key,
+  });
+
+  final MediaItem item;
+  final Animation<double> progress;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: progress,
+      builder: (context, child) {
+        final scale = 1.0 + (progress.value * 0.06);
+        final shift = progress.value * 12;
+        return Transform.translate(
+          offset: Offset(-shift, 0),
+          child: Transform.scale(scale: scale, child: child),
+        );
+      },
+      child: _Backdrop(item: item),
+    );
+  }
+}
+
+class _HeroIndicator extends StatelessWidget {
+  const _HeroIndicator({
+    required this.count,
+    required this.index,
+    required this.progress,
+  });
+
+  final int count;
+  final int index;
+  final Animation<double> progress;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.start,
+      children: [
+        for (var i = 0; i < count; i++)
+          Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOutCubic,
+              width: i == index ? 36 : 8,
+              height: 4,
+              decoration: BoxDecoration(
+                color: i == index
+                    ? Colors.white.withValues(alpha: 0.18)
+                    : Colors.white.withValues(alpha: 0.30),
+                borderRadius: BorderRadius.circular(2),
+              ),
+              child: i == index
+                  ? AnimatedBuilder(
+                      animation: progress,
+                      builder: (context, _) {
+                        return Align(
+                          alignment: Alignment.centerLeft,
+                          child: FractionallySizedBox(
+                            widthFactor: progress.value.clamp(0.0, 1.0),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: AppColors.gold,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    )
+                  : null,
+            ),
           ),
-          Positioned(right: 56, bottom: 66, child: _Poster(item: item)),
-        ],
+      ],
+    );
+  }
+}
+
+class _HeroNav extends StatelessWidget {
+  const _HeroNav({required this.onPrev, required this.onNext});
+
+  final VoidCallback onPrev;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned(
+          left: 12,
+          top: 0,
+          bottom: 0,
+          child: Center(child: _HeroNavButton(icon: Icons.chevron_left_rounded, onTap: onPrev)),
+        ),
+        Positioned(
+          right: 12,
+          top: 0,
+          bottom: 0,
+          child: Center(child: _HeroNavButton(icon: Icons.chevron_right_rounded, onTap: onNext)),
+        ),
+      ],
+    );
+  }
+}
+
+class _HeroNavButton extends StatelessWidget {
+  const _HeroNavButton({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.black.withValues(alpha: 0.42),
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: SizedBox(
+          width: 44,
+          height: 44,
+          child: Icon(icon, color: AppColors.text, size: 26),
+        ),
       ),
     );
   }
@@ -226,7 +581,7 @@ class _HeroFallback extends StatelessWidget {
 }
 
 class _Poster extends StatelessWidget {
-  const _Poster({required this.item});
+  const _Poster({required this.item, super.key});
 
   final MediaItem item;
 

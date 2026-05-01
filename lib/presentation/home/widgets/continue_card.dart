@@ -99,21 +99,37 @@ class _ContinueCardState extends State<ContinueCard> {
                         ),
                       ),
                       const SizedBox(height: 3),
-                      Text(
-                        widget.item.seasonEpisodeLabel ?? 'Resume playback',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.muted,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              widget.item.seasonEpisodeLabel ?? 'Resume playback',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppColors.muted,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${(widget.item.progress.clamp(0.0, 1.0) * 100).round()}%',
+                            style: const TextStyle(
+                              color: AppColors.gold,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 8),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(2),
                         child: LinearProgressIndicator(
-                          value: widget.item.progress,
+                          value: widget.item.progress.clamp(0.0, 1.0),
                           minHeight: 3,
                           backgroundColor: Colors.white24,
                           valueColor: const AlwaysStoppedAnimation(

@@ -131,7 +131,8 @@ class MediaItem {
     final genres = (json['genre'] as List? ?? const [])
         .whereType<String>()
         .toList();
-    final rating = double.tryParse((json['imdbRating'] ?? '') as String) ?? 0;
+    final rawRating = (json['imdbRating'] ?? '') as String;
+    final rating = double.tryParse(rawRating) ?? 0;
     final releaseInfo = (json['releaseInfo'] ?? json['year'] ?? '') as String;
     final released = (json['released'] ?? '') as String;
 
@@ -142,8 +143,8 @@ class MediaItem {
       genre: genres.isNotEmpty
           ? genres.first
           : mediaType == MediaType.tv
-          ? 'Series'
-          : 'Film',
+          ? 'Drama'
+          : 'Cinema',
       releaseYear: _yearFrom(releaseInfo, released),
       overview: (json['description'] ?? '') as String,
       voteAverage: rating,
@@ -203,6 +204,11 @@ class MediaItem {
   }
 
   MediaItem copyWith({
+    String? genre,
+    String? releaseYear,
+    double? voteAverage,
+    String? runtimeLabel,
+    List<String>? tags,
     bool? isFavorite,
     bool? isInWatchlist,
     double? progress,
@@ -212,20 +218,20 @@ class MediaItem {
       tmdbId: tmdbId,
       title: title,
       mediaType: mediaType,
-      genre: genre,
-      releaseYear: releaseYear,
+      genre: genre ?? this.genre,
+      releaseYear: releaseYear ?? this.releaseYear,
       overview: overview,
-      voteAverage: voteAverage,
+      voteAverage: voteAverage ?? this.voteAverage,
       posterPath: posterPath,
       backdropPath: backdropPath,
       imdbId: imdbId,
-      runtimeLabel: runtimeLabel,
+      runtimeLabel: runtimeLabel ?? this.runtimeLabel,
       isNew: isNew,
       isFavorite: isFavorite ?? this.isFavorite,
       isInWatchlist: isInWatchlist ?? this.isInWatchlist,
       progress: progress ?? this.progress,
       seasonEpisodeLabel: seasonEpisodeLabel ?? this.seasonEpisodeLabel,
-      tags: tags,
+      tags: tags ?? this.tags,
       cast: cast,
       seasons: seasons,
     );

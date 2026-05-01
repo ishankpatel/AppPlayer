@@ -7,7 +7,9 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/image_utils.dart';
 import '../../providers.dart';
+import '../common/smart_network_image.dart';
 
 class PlayerScreen extends ConsumerStatefulWidget {
   const PlayerScreen({
@@ -130,7 +132,28 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           if (hasStream)
             Video(controller: _controller)
           else
-            const _NoStreamPlaceholder(),
+            _NoStreamPlaceholder(
+              title: widget.mediaTitle ?? widget.title,
+              posterPath: widget.posterPath,
+              backdropPath: widget.backdropPath,
+            ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
+              child: Container(
+                height: 132,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0xCC000000), Color(0x00000000)],
+                  ),
+                ),
+              ),
+            ),
+          ),
           Positioned(
             top: MediaQuery.paddingOf(context).top + 10,
             left: 12,
@@ -309,30 +332,114 @@ class _TrackSheet<T> extends StatelessWidget {
 }
 
 class _NoStreamPlaceholder extends StatelessWidget {
-  const _NoStreamPlaceholder();
+  const _NoStreamPlaceholder({
+    required this.title,
+    this.posterPath,
+    this.backdropPath,
+  });
+
+  final String title;
+  final String? posterPath;
+  final String? backdropPath;
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.play_circle_outline_rounded,
-            color: AppColors.gold,
-            size: 72,
+    final artworkUrl =
+        ImageUtils.tmdbBackdrop(backdropPath) ??
+        ImageUtils.tmdbPoster(posterPath);
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (artworkUrl != null)
+          SmartNetworkImage(
+            imageUrl: artworkUrl,
+            fit: BoxFit.cover,
+            fallback: const _PlayerArtFallback(),
+          )
+        else
+          const _PlayerArtFallback(),
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xAA000000), Color(0xEE000000)],
+            ),
           ),
-          SizedBox(height: 16),
-          Text(
-            'No stream URL selected',
-            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+        ),
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 88,
+                    height: 88,
+                    decoration: BoxDecoration(
+                      color: AppColors.gold.withValues(alpha: 0.92),
+                      borderRadius: BorderRadius.circular(44),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x66000000),
+                          blurRadius: 24,
+                          offset: Offset(0, 12),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.play_arrow_rounded,
+                      color: AppColors.ink,
+                      size: 48,
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: AppColors.text,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'No stream URL selected. The native player is ready for authorized direct playback links.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: AppColors.text.withValues(alpha: 0.62),
+                      height: 1.45,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-          SizedBox(height: 6),
-          Text(
-            'The native player is ready for authorized direct playback links.',
-            style: TextStyle(color: AppColors.muted),
-          ),
-        ],
+        ),
+      ],
+    );
+  }
+}
+
+class _PlayerArtFallback extends StatelessWidget {
+  const _PlayerArtFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return const DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF1F1011), Color(0xFF050608), Color(0xFF1A2342)],
+        ),
       ),
     );
   }

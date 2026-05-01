@@ -35,13 +35,29 @@ class CinemetaRemoteDataSource {
     required String query,
     required MediaType mediaType,
   }) async {
+    final list = await searchAll(query: query, mediaType: mediaType);
+    return list.isEmpty ? null : list.first;
+  }
+
+  /// Returns up to 10 results for the given query/type. Used by live search.
+  Future<List<MediaItem>> searchAll({
+    required String query,
+    required MediaType mediaType,
+    int limit = 10,
+  }) async {
+    if (query.trim().isEmpty) return const [];
     final typePath = mediaType == MediaType.tv ? 'series' : 'movie';
-    final response = await _dio.get<Map<String, dynamic>>(
-      '$_baseUrl/catalog/$typePath/top/search=${Uri.encodeComponent(query)}.json',
-    );
-    final items = _items(response);
-    if (items.isEmpty) return null;
-    return MediaItem.fromCinemeta(items.first, fallbackType: mediaType);
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '$_baseUrl/catalog/$typePath/top/search=${Uri.encodeComponent(query)}.json',
+      );
+      return _items(response)
+          .take(limit)
+          .map((item) => MediaItem.fromCinemeta(item, fallbackType: mediaType))
+          .toList();
+    } catch (_) {
+      return const [];
+    }
   }
 
   Iterable<Map<String, dynamic>> _items(
