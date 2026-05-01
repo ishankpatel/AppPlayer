@@ -60,6 +60,22 @@ class CinemetaRemoteDataSource {
     }
   }
 
+  Future<Map<String, dynamic>?> meta({
+    required String imdbId,
+    required MediaType mediaType,
+  }) async {
+    if (imdbId.isEmpty || !imdbId.startsWith('tt')) return null;
+    final typePath = mediaType == MediaType.tv ? 'series' : 'movie';
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '$_baseUrl/meta/$typePath/$imdbId.json',
+      );
+      return response.data?['meta'] as Map<String, dynamic>?;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Iterable<Map<String, dynamic>> _items(
     Response<Map<String, dynamic>> response,
   ) {

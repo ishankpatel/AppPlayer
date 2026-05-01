@@ -85,10 +85,7 @@ class RowCacheNotifier extends Notifier<Map<String, RowCacheEntry>> {
       };
       return merged;
     } catch (_) {
-      state = {
-        ...state,
-        title: entry.copyWith(loading: false, hasMore: false),
-      };
+      state = {...state, title: entry.copyWith(loading: false, hasMore: false)};
       return entry.items;
     }
   }
@@ -106,8 +103,8 @@ class RowCacheNotifier extends Notifier<Map<String, RowCacheEntry>> {
 
 final rowCacheProvider =
     NotifierProvider<RowCacheNotifier, Map<String, RowCacheEntry>>(
-  RowCacheNotifier.new,
-);
+      RowCacheNotifier.new,
+    );
 
 /// Helper that wires a row title to the shared cache.
 typedef CategoryFetcher = Future<List<MediaItem>> Function(int page);

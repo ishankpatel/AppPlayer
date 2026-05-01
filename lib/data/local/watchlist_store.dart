@@ -1,38 +1,19 @@
-import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
-import 'package:path/path.dart' as path;
-import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/media_item.dart';
 
-/// Persists a user's watchlist (My List) to `<appSupport>/watchlist.json` so
-/// add/remove operations survive app restarts. Avoids regenerating Drift
-/// schema for what is essentially a simple key/value list.
+/// Persists My List per device. Supabase sync merges cloud records into this
+/// local list when a household session is active.
 class WatchlistStore {
-  WatchlistStore();
-
-  File? _cachedFile;
-
-  Future<File> _file() async {
-    final cached = _cachedFile;
-    if (cached != null) return cached;
-    final dir = await getApplicationSupportDirectory();
-    final f = File(path.join(dir.path, 'watchlist.json'));
-    if (!await f.exists()) {
-      await f.create(recursive: true);
-      await f.writeAsString('[]');
-    }
-    _cachedFile = f;
-    return f;
-  }
+  static const _key = 'streamvault_watchlist';
 
   Future<List<WatchlistRecord>> load() async {
     try {
-      final f = await _file();
-      final raw = await f.readAsString();
-      if (raw.trim().isEmpty) return const [];
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_key);
+      if (raw == null || raw.trim().isEmpty) return const [];
       final list = jsonDecode(raw);
       if (list is! List) return const [];
       return list
@@ -45,8 +26,11 @@ class WatchlistStore {
   }
 
   Future<void> save(List<WatchlistRecord> records) async {
-    final f = await _file();
-    await f.writeAsString(jsonEncode(records.map((r) => r.toJson()).toList()));
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _key,
+      jsonEncode(records.map((r) => r.toJson()).toList()),
+    );
   }
 }
 
@@ -93,6 +77,24 @@ class WatchlistRecord {
     );
   }
 
+  factory WatchlistRecord.fromSupabase(Map<String, dynamic> json) {
+    return WatchlistRecord(
+      tmdbId: (json['tmdb_id'] as num?)?.toInt() ?? 0,
+      mediaType: (json['media_type'] as String? ?? 'movie') == 'tv'
+          ? MediaType.tv
+          : MediaType.movie,
+      title: (json['title'] as String?) ?? 'Untitled',
+      releaseYear: '',
+      genre: '',
+      voteAverage: 0,
+      addedAt:
+          DateTime.tryParse((json['added_at'] as String?) ?? '') ??
+          DateTime.now(),
+      posterPath: json['poster_path'] as String?,
+      backdropPath: json['backdrop_path'] as String?,
+    );
+  }
+
   factory WatchlistRecord.fromJson(Map<String, dynamic> json) {
     return WatchlistRecord(
       tmdbId: (json['tmdbId'] as num?)?.toInt() ?? 0,
@@ -104,7 +106,8 @@ class WatchlistRecord {
       genre: (json['genre'] as String?) ?? '',
       voteAverage: ((json['voteAverage'] as num?) ?? 0).toDouble(),
       addedAt:
-          DateTime.tryParse((json['addedAt'] as String?) ?? '') ?? DateTime.now(),
+          DateTime.tryParse((json['addedAt'] as String?) ?? '') ??
+          DateTime.now(),
       posterPath: json['posterPath'] as String?,
       backdropPath: json['backdropPath'] as String?,
       overview: json['overview'] as String?,

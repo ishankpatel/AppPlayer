@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../data/datasources/espn_remote.dart';
@@ -14,16 +15,20 @@ class SportsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final league = ref.watch(activeLeagueProvider);
     final eventsAsync = ref.watch(scoreboardProvider(league));
+    final compact = MediaQuery.sizeOf(context).width < 720;
+    final horizontalPadding = compact ? 18.0 : 34.0;
 
     return CustomScrollView(
-      physics: const BouncingScrollPhysics(),
+      physics: compact
+          ? const ClampingScrollPhysics()
+          : const BouncingScrollPhysics(),
       slivers: [
         SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.fromLTRB(
-              34,
-              MediaQuery.paddingOf(context).top + 92,
-              34,
+              horizontalPadding,
+              MediaQuery.paddingOf(context).top + (compact ? 76 : 92),
+              horizontalPadding,
               16,
             ),
             child: Column(
@@ -38,11 +43,11 @@ class SportsScreen extends ConsumerWidget {
                     ),
                     const SizedBox(width: 12),
                     Text(
-                      'Live Sports',
-                      style: Theme.of(context)
-                          .textTheme
-                          .displaySmall
-                          ?.copyWith(fontWeight: FontWeight.w900),
+                      'Live Sports Streams',
+                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                        fontSize: compact ? 30 : null,
+                      ),
                     ),
                     const Spacer(),
                     IconButton(
@@ -55,7 +60,7 @@ class SportsScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Real-time scoreboards from ESPN. Updates every 30 seconds while a game is live.',
+                  'Real-time scoreboards from ESPN with authorized stream options by league. Updates every 30 seconds while a game is live.',
                   style: TextStyle(
                     color: AppColors.text.withValues(alpha: 0.65),
                     fontSize: 14,
@@ -64,6 +69,8 @@ class SportsScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 18),
                 _LeagueTabs(active: league),
+                const SizedBox(height: 18),
+                _WatchProviderStrip(league: league),
               ],
             ),
           ),
@@ -81,16 +88,24 @@ class SportsScreen extends ConsumerWidget {
             final finals = events.where((e) => e.isFinal).toList();
 
             return SliverPadding(
-              padding: const EdgeInsets.fromLTRB(34, 0, 34, 60),
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
+                0,
+                horizontalPadding,
+                60,
+              ),
               sliver: SliverList.list(
                 children: [
                   if (live.isNotEmpty) ...[
-                    const _SectionHeading(label: 'Live now', dotColor: Colors.red),
+                    const _SectionHeading(
+                      label: 'Live now',
+                      dotColor: Colors.red,
+                    ),
                     const SizedBox(height: 12),
                     for (final e in live)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 12),
-                        child: _GameCard(event: e),
+                        child: _GameCard(event: e, league: league),
                       ),
                     const SizedBox(height: 22),
                   ],
@@ -100,7 +115,7 @@ class SportsScreen extends ConsumerWidget {
                     for (final e in upcoming.take(12))
                       Padding(
                         padding: const EdgeInsets.only(bottom: 12),
-                        child: _GameCard(event: e),
+                        child: _GameCard(event: e, league: league),
                       ),
                     const SizedBox(height: 22),
                   ],
@@ -110,7 +125,7 @@ class SportsScreen extends ConsumerWidget {
                     for (final e in finals.take(12))
                       Padding(
                         padding: const EdgeInsets.only(bottom: 12),
-                        child: _GameCard(event: e),
+                        child: _GameCard(event: e, league: league),
                       ),
                   ],
                 ],
@@ -150,6 +165,7 @@ class _LeagueTabs extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final compact = MediaQuery.sizeOf(context).width < 720;
     return SizedBox(
       height: 38,
       child: ListView.separated(
@@ -161,12 +177,10 @@ class _LeagueTabs extends ConsumerWidget {
           final selected = league == active;
           return InkWell(
             borderRadius: BorderRadius.circular(20),
-            onTap: () =>
-                ref.read(activeLeagueProvider.notifier).update(league),
+            onTap: () => ref.read(activeLeagueProvider.notifier).update(league),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 160),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
               decoration: BoxDecoration(
                 color: selected
                     ? AppColors.gold.withValues(alpha: 0.18)
@@ -178,7 +192,7 @@ class _LeagueTabs extends ConsumerWidget {
               ),
               alignment: Alignment.center,
               child: Text(
-                league.longLabel,
+                compact ? league.label : league.longLabel,
                 style: TextStyle(
                   color: selected ? AppColors.gold : AppColors.text,
                   fontWeight: FontWeight.w800,
@@ -189,6 +203,122 @@ class _LeagueTabs extends ConsumerWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _WatchProviderStrip extends StatelessWidget {
+  const _WatchProviderStrip({required this.league});
+
+  final SportLeague league;
+
+  @override
+  Widget build(BuildContext context) {
+    final providers = league.watchProviders;
+    if (providers.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.verified_rounded, color: AppColors.gold, size: 17),
+            const SizedBox(width: 8),
+            Text(
+              'Watch options',
+              style: TextStyle(
+                color: AppColors.text.withValues(alpha: 0.88),
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 72,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            physics: const ClampingScrollPhysics(),
+            itemCount: providers.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 10),
+            itemBuilder: (context, index) {
+              final provider = providers[index];
+              return _ProviderChip(provider: provider);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProviderChip extends StatelessWidget {
+  const _ProviderChip({required this.provider});
+
+  final SportsWatchProvider provider;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => _launchProvider(context, provider),
+      child: Container(
+        width: 210,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.white12),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: AppColors.gold.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.open_in_new_rounded,
+                color: AppColors.gold,
+                size: 18,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    provider.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.text,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    provider.note,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.muted,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -256,13 +386,11 @@ class _LiveDotState extends State<_LiveDot>
           width: 9,
           height: 9,
           decoration: BoxDecoration(
-            color: widget.color
-                .withValues(alpha: 0.5 + (_ctrl.value * 0.5)),
+            color: widget.color.withValues(alpha: 0.5 + (_ctrl.value * 0.5)),
             borderRadius: BorderRadius.circular(5),
             boxShadow: [
               BoxShadow(
-                color: widget.color
-                    .withValues(alpha: 0.4 * (1 - _ctrl.value)),
+                color: widget.color.withValues(alpha: 0.4 * (1 - _ctrl.value)),
                 blurRadius: 12 * _ctrl.value,
               ),
             ],
@@ -274,9 +402,10 @@ class _LiveDotState extends State<_LiveDot>
 }
 
 class _GameCard extends StatelessWidget {
-  const _GameCard({required this.event});
+  const _GameCard({required this.event, required this.league});
 
   final ScoreboardEvent event;
+  final SportLeague league;
 
   @override
   Widget build(BuildContext context) {
@@ -300,8 +429,10 @@ class _GameCard extends StatelessWidget {
             children: [
               if (event.isLive)
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.red.withValues(alpha: 0.22),
                     borderRadius: BorderRadius.circular(4),
@@ -326,8 +457,10 @@ class _GameCard extends StatelessWidget {
                 ),
               if (!event.isLive)
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: event.isFinal
                         ? Colors.white.withValues(alpha: 0.06)
@@ -340,8 +473,7 @@ class _GameCard extends StatelessWidget {
                   child: Text(
                     event.isFinal ? 'FINAL' : 'UPCOMING',
                     style: TextStyle(
-                      color:
-                          event.isFinal ? AppColors.muted : AppColors.gold,
+                      color: event.isFinal ? AppColors.muted : AppColors.gold,
                       fontWeight: FontWeight.w900,
                       fontSize: 11,
                       letterSpacing: 0.6,
@@ -368,8 +500,10 @@ class _GameCard extends StatelessWidget {
               if (event.broadcasts.isNotEmpty) ...[
                 const SizedBox(width: 6),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.05),
                     borderRadius: BorderRadius.circular(4),
@@ -416,7 +550,8 @@ class _GameCard extends StatelessWidget {
               ),
             ],
           ),
-          if (event.venue.isNotEmpty || (start != null && event.isUpcoming)) ...[
+          if (event.venue.isNotEmpty ||
+              (start != null && event.isUpcoming)) ...[
             const SizedBox(height: 14),
             Row(
               children: [
@@ -463,9 +598,9 @@ class _GameCard extends StatelessWidget {
           if (event.isLive) ...[
             const SizedBox(height: 14),
             FilledButton.icon(
-              onPressed: () => _showStreamDialog(context, event),
+              onPressed: () => _showStreamDialog(context, event, league),
               icon: const Icon(Icons.live_tv_rounded),
-              label: const Text('Open Stream'),
+              label: const Text('Stream Sources'),
             ),
           ],
         ],
@@ -473,7 +608,12 @@ class _GameCard extends StatelessWidget {
     );
   }
 
-  void _showStreamDialog(BuildContext context, ScoreboardEvent event) {
+  void _showStreamDialog(
+    BuildContext context,
+    ScoreboardEvent event,
+    SportLeague league,
+  ) {
+    final providers = league.watchProviders;
     showDialog<void>(
       context: context,
       builder: (context) => Dialog(
@@ -508,10 +648,10 @@ class _GameCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
                 const Text(
-                  'StreamVault does not host or redistribute live sports streams. '
-                  'Open the official broadcaster app or your authorized provider '
-                  'to watch this game. The score line on this card stays in sync '
-                  'with ESPN data while the broadcast is live.',
+                  'StreamVault lists authorized live sports stream sources and '
+                  'does not host or redistribute protected broadcasts. Open your '
+                  'provider to watch this game while the score line stays in sync '
+                  'with ESPN data.',
                   style: TextStyle(
                     color: AppColors.muted,
                     fontWeight: FontWeight.w600,
@@ -519,6 +659,21 @@ class _GameCard extends StatelessWidget {
                     fontSize: 13,
                   ),
                 ),
+                if (providers.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      for (final provider in providers)
+                        FilledButton.icon(
+                          onPressed: () => _launchProvider(context, provider),
+                          icon: const Icon(Icons.open_in_new_rounded),
+                          label: Text(provider.name),
+                        ),
+                    ],
+                  ),
+                ],
                 if (event.broadcasts.isNotEmpty) ...[
                   const SizedBox(height: 14),
                   Wrap(
@@ -528,7 +683,9 @@ class _GameCard extends StatelessWidget {
                       for (final b in event.broadcasts)
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 6),
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: AppColors.gold.withValues(alpha: 0.18),
                             borderRadius: BorderRadius.circular(6),
@@ -590,14 +747,13 @@ class _TeamRow extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: logo == null
-          ? const Icon(
-              Icons.sports_rounded,
-              color: AppColors.muted,
-              size: 20,
-            )
+          ? const Icon(Icons.sports_rounded, color: AppColors.muted, size: 20)
           : SmartNetworkImage(
               imageUrl: logo!,
               fit: BoxFit.contain,
+              cacheWidth: 38,
+              cacheHeight: 38,
+              enableShimmer: false,
               fallback: const Icon(
                 Icons.sports_rounded,
                 color: AppColors.muted,
@@ -639,6 +795,20 @@ class _TeamRow extends StatelessWidget {
     }
     return Row(children: children);
   }
+}
+
+Future<void> _launchProvider(
+  BuildContext context,
+  SportsWatchProvider provider,
+) async {
+  final launched = await launchUrl(
+    provider.uri,
+    mode: LaunchMode.externalApplication,
+  );
+  if (launched || !context.mounted) return;
+  ScaffoldMessenger.of(
+    context,
+  ).showSnackBar(SnackBar(content: Text('Could not open ${provider.name}.')));
 }
 
 class _EmptyState extends StatelessWidget {

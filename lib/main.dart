@@ -8,6 +8,8 @@ import 'presentation/app.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  PaintingBinding.instance.imageCache.maximumSize = 240;
+  PaintingBinding.instance.imageCache.maximumSizeBytes = 96 << 20;
   usePathUrlStrategy();
   MediaKit.ensureInitialized();
 

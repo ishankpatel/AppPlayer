@@ -40,13 +40,15 @@ class ScoreboardEvent {
   bool get isUpcoming => statusState == 'pre';
 
   factory ScoreboardEvent.fromJson(Map<String, dynamic> json) {
-    final competitions =
-        (json['competitions'] as List? ?? const []).whereType<Map>().toList();
+    final competitions = (json['competitions'] as List? ?? const [])
+        .whereType<Map>()
+        .toList();
     final competition = competitions.isEmpty
         ? <String, dynamic>{}
         : Map<String, dynamic>.from(competitions.first);
-    final competitors =
-        (competition['competitors'] as List? ?? const []).whereType<Map>().toList();
+    final competitors = (competition['competitors'] as List? ?? const [])
+        .whereType<Map>()
+        .toList();
     Map<String, dynamic> teamFor(String role) {
       final match = competitors.firstWhere(
         (c) => (c['homeAway'] as String?) == role,
@@ -65,27 +67,28 @@ class ScoreboardEvent {
         (competition['venue'] as Map? ?? const <String, dynamic>{});
     final broadcasts = (competition['broadcasts'] as List? ?? const [])
         .whereType<Map>()
-        .expand(
-          (b) => ((b['names'] as List?) ?? const [])
-              .whereType<String>(),
-        )
+        .expand((b) => ((b['names'] as List?) ?? const []).whereType<String>())
         .toList();
 
     return ScoreboardEvent(
       id: (json['id'] as String?) ?? '',
-      shortName: (json['shortName'] as String?) ??
+      shortName:
+          (json['shortName'] as String?) ??
           (json['name'] as String?) ??
           'Match',
-      statusText: ((statusType['shortDetail'] as String?) ??
-              (statusType['detail'] as String?) ??
-              (statusType['description'] as String?) ??
-              '')
-          .trim(),
+      statusText:
+          ((statusType['shortDetail'] as String?) ??
+                  (statusType['detail'] as String?) ??
+                  (statusType['description'] as String?) ??
+                  '')
+              .trim(),
       statusState: (statusType['state'] as String?) ?? 'pre',
-      homeTeam: (homeTeamMap['displayName'] as String?) ??
+      homeTeam:
+          (homeTeamMap['displayName'] as String?) ??
           (homeTeamMap['shortDisplayName'] as String?) ??
           'Home',
-      awayTeam: (awayTeamMap['displayName'] as String?) ??
+      awayTeam:
+          (awayTeamMap['displayName'] as String?) ??
           (awayTeamMap['shortDisplayName'] as String?) ??
           'Away',
       homeScore: int.tryParse((home['score'] as String?) ?? '') ?? 0,
@@ -122,12 +125,12 @@ class EspnRemoteDataSource {
           .toList();
       // Sort: live first, then upcoming (by start), then finals
       events.sort((a, b) {
-        int rank(ScoreboardEvent e) =>
-            e.isLive ? 0 : (e.isUpcoming ? 1 : 2);
+        int rank(ScoreboardEvent e) => e.isLive ? 0 : (e.isUpcoming ? 1 : 2);
         final r = rank(a).compareTo(rank(b));
         if (r != 0) return r;
-        return (a.startTime ?? DateTime(2100))
-            .compareTo(b.startTime ?? DateTime(2100));
+        return (a.startTime ?? DateTime(2100)).compareTo(
+          b.startTime ?? DateTime(2100),
+        );
       });
       return events;
     } catch (_) {

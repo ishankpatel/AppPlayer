@@ -729,8 +729,9 @@ class MediaItem {
       releaseYear: '2013',
       runtimeLabel: 'Series',
       voteAverage: 8.7,
-      posterPath: '/hTP1DtLGFamjfu8WqjnuQdP1n4i.jpg',
-      backdropPath: '/rqbCbjB19amtOtFQbb3K2lgm2zv.jpg',
+      posterPath: 'https://images.metahub.space/poster/medium/tt2560140/img',
+      backdropPath:
+          'https://images.metahub.space/background/medium/tt2560140/img',
       imdbId: 'tt2560140',
       overview:
           'Humanity fights for survival against enormous beings beyond the walls.',
@@ -745,8 +746,9 @@ class MediaItem {
       releaseYear: '2019',
       runtimeLabel: 'Series',
       voteAverage: 8.6,
-      posterPath: '/xUfRZu2mi8jH6SzQEJGP6tjBuYj.jpg',
-      backdropPath: '/3GQKYh6Trm8pxd2AypovoYQf4Ay.jpg',
+      posterPath: 'https://images.metahub.space/poster/medium/tt9335498/img',
+      backdropPath:
+          'https://images.metahub.space/background/medium/tt9335498/img',
       imdbId: 'tt9335498',
       overview:
           'A kindhearted boy trains as a demon slayer after tragedy changes his family forever.',
@@ -763,8 +765,9 @@ class MediaItem {
       releaseYear: '2020',
       runtimeLabel: 'Series',
       voteAverage: 8.5,
-      posterPath: '/fHpKWq9ayzSk8nSwqRuaAUemRKh.jpg',
-      backdropPath: '/qpin8cASXEVtwhzNsprHYFiOAGk.jpg',
+      posterPath: 'https://images.metahub.space/poster/medium/tt12343534/img',
+      backdropPath:
+          'https://images.metahub.space/background/medium/tt12343534/img',
       imdbId: 'tt12343534',
       overview:
           'A student enters a secret world of curses, sorcerers, and impossible choices.',
@@ -779,8 +782,9 @@ class MediaItem {
       releaseYear: '2024',
       runtimeLabel: 'Series',
       voteAverage: 8.4,
-      posterPath: '/geCRueV3ElhRTr0xtJuEWJt6dJ1.jpg',
-      backdropPath: '/xMNH87maNLt9n2bMDYeI6db5VFm.jpg',
+      posterPath: 'https://images.metahub.space/poster/medium/tt21209876/img',
+      backdropPath:
+          'https://images.metahub.space/background/medium/tt21209876/img',
       imdbId: 'tt21209876',
       overview:
           'The weakest hunter begins a brutal climb through gates, monsters, and hidden power.',
@@ -956,8 +960,9 @@ class MediaItem {
       releaseYear: '1999',
       runtimeLabel: 'Series',
       voteAverage: 8.7,
-      posterPath: '/dB4EDhre2dsC2kxYDavyKWqLQwi.jpg',
-      backdropPath: '/4Mt7WHox67uJ1yErwTBFcV8KWgG.jpg',
+      posterPath: 'https://images.metahub.space/poster/medium/tt0388629/img',
+      backdropPath:
+          'https://images.metahub.space/background/medium/tt0388629/img',
       imdbId: 'tt0388629',
       overview:
           'A rubber-bodied pirate and his crew chase the legendary treasure across dangerous seas.',
@@ -972,8 +977,9 @@ class MediaItem {
       releaseYear: '2023',
       runtimeLabel: 'Series',
       voteAverage: 8.9,
-      posterPath: '/dqZENchTd7lp5zht7BdlqM7RBhD.jpg',
-      backdropPath: '/rBOnrVlck7BIlGeWVlzYiZeg4l2.jpg',
+      posterPath: 'https://images.metahub.space/poster/medium/tt22248376/img',
+      backdropPath:
+          'https://images.metahub.space/background/medium/tt22248376/img',
       imdbId: 'tt22248376',
       overview:
           'An elf mage retraces old journeys and learns what time meant to the people beside her.',
@@ -988,8 +994,9 @@ class MediaItem {
       releaseYear: '2022',
       runtimeLabel: 'Series',
       voteAverage: 8.5,
-      posterPath: '/yVtx7Xn9UxNJqvG2BkvhCcmed9S.jpg',
-      backdropPath: '/5DUMPBSnHOZsbBv81GFXZXvDpo6.jpg',
+      posterPath: 'https://images.metahub.space/poster/medium/tt13616990/img',
+      backdropPath:
+          'https://images.metahub.space/background/medium/tt13616990/img',
       imdbId: 'tt13616990',
       overview:
           'A broke devil hunter fuses with his pet devil and enters a violent government unit.',
@@ -1004,8 +1011,9 @@ class MediaItem {
       releaseYear: '2016',
       runtimeLabel: 'Series',
       voteAverage: 8.6,
-      posterPath: '/phuYuzqWW9ru8EA3HVjE9W2Rr3M.jpg',
-      backdropPath: '/ol0H2DGp4ifBHA4JDlCpwJWxnY2.jpg',
+      posterPath: 'https://images.metahub.space/poster/medium/tt5626028/img',
+      backdropPath:
+          'https://images.metahub.space/background/medium/tt5626028/img',
       imdbId: 'tt5626028',
       overview:
           'A powerless boy enters a hero academy after inheriting the world greatest ability.',
@@ -1020,6 +1028,9 @@ class MediaItem {
       releaseYear: '2023',
       runtimeLabel: 'Series',
       voteAverage: 8.9,
+      posterPath: 'https://images.metahub.space/poster/medium/tt2560140/img',
+      backdropPath:
+          'https://images.metahub.space/background/medium/tt2560140/img',
       imdbId: 'tt2560140',
       overview:
           'The war reaches its final stage as friends confront the impossible cost of freedom.',
@@ -1034,8 +1045,9 @@ class MediaItem {
       releaseYear: '2019',
       runtimeLabel: 'Series',
       voteAverage: 8.5,
-      posterPath: '/gvOZN1NlAoL8iz9ghpES1zWA3w3.jpg',
-      backdropPath: '/nBZyWSGAUEzCH7Mna0zUNTpBQlQ.jpg',
+      posterPath: 'https://images.metahub.space/poster/medium/tt10233448/img',
+      backdropPath:
+          'https://images.metahub.space/background/medium/tt10233448/img',
       imdbId: 'tt10233448',
       overview:
           'A young warrior chases revenge through a brutal world of raiders, kings, and consequence.',

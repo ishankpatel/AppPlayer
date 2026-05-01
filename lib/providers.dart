@@ -5,6 +5,7 @@ import 'data/datasources/cinemeta_remote.dart';
 import 'data/datasources/espn_remote.dart';
 import 'data/datasources/supabase_sync.dart';
 import 'data/datasources/tmdb_remote.dart';
+import 'data/datasources/torrentio_remote.dart';
 import 'data/local/local_database.dart';
 import 'data/repositories/media_repository.dart';
 import 'data/repositories/sync_repository.dart';
@@ -36,6 +37,10 @@ final cinemetaRemoteProvider = Provider<CinemetaRemoteDataSource>((ref) {
 
 final espnRemoteProvider = Provider<EspnRemoteDataSource>((ref) {
   return EspnRemoteDataSource(ref.watch(dioProvider));
+});
+
+final torrentioRemoteProvider = Provider<TorrentioRemoteDataSource>((ref) {
+  return TorrentioRemoteDataSource(ref.watch(dioProvider));
 });
 
 final mediaRepositoryProvider = Provider<MediaRepository>((ref) {

@@ -24,8 +24,7 @@ class HeroBanner extends StatefulWidget {
   State<HeroBanner> createState() => _HeroBannerState();
 }
 
-class _HeroBannerState extends State<HeroBanner>
-    with TickerProviderStateMixin {
+class _HeroBannerState extends State<HeroBanner> with TickerProviderStateMixin {
   late final AnimationController _progress;
   int _index = 0;
   bool _hovered = false;
@@ -33,12 +32,13 @@ class _HeroBannerState extends State<HeroBanner>
   @override
   void initState() {
     super.initState();
-    _progress = AnimationController(vsync: this, duration: widget.advanceDuration)
-      ..addStatusListener((status) {
-        if (status == AnimationStatus.completed && mounted) {
-          _advance(1);
-        }
-      });
+    _progress =
+        AnimationController(vsync: this, duration: widget.advanceDuration)
+          ..addStatusListener((status) {
+            if (status == AnimationStatus.completed && mounted) {
+              _advance(1);
+            }
+          });
     if (widget.items.length > 1) _progress.forward();
   }
 
@@ -91,7 +91,7 @@ class _HeroBannerState extends State<HeroBanner>
     if (widget.items.isEmpty) return const SizedBox.shrink();
     final size = MediaQuery.sizeOf(context);
     final height = size.width < 720
-        ? 620.0
+        ? (size.height * 0.66).clamp(460.0, 560.0).toDouble()
         : (size.height * 0.72).clamp(560.0, 720.0).toDouble();
     final item = widget.items[_index.clamp(0, widget.items.length - 1)];
 
@@ -104,7 +104,7 @@ class _HeroBannerState extends State<HeroBanner>
           fit: StackFit.expand,
           children: [
             AnimatedSwitcher(
-              duration: const Duration(milliseconds: 700),
+              duration: const Duration(milliseconds: 340),
               switchInCurve: Curves.easeOutCubic,
               switchOutCurve: Curves.easeInCubic,
               child: _AnimatedBackdrop(
@@ -117,7 +117,7 @@ class _HeroBannerState extends State<HeroBanner>
             Align(
               alignment: Alignment.bottomLeft,
               child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 480),
+                duration: const Duration(milliseconds: 220),
                 switchInCurve: Curves.easeOutCubic,
                 switchOutCurve: Curves.easeInCubic,
                 transitionBuilder: (child, animation) {
@@ -144,7 +144,7 @@ class _HeroBannerState extends State<HeroBanner>
               right: 56,
               bottom: 66,
               child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 520),
+                duration: const Duration(milliseconds: 260),
                 switchInCurve: Curves.easeOutCubic,
                 child: _Poster(
                   key: ValueKey('poster-${item.tmdbId}'),
@@ -244,11 +244,39 @@ class _HeroCopy extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final compact = MediaQuery.sizeOf(context).width < 720;
     final saved = ref.watch(
       isInWatchlistProvider((tmdbId: item.tmdbId, mediaType: item.mediaType)),
     );
+    final compactFilledStyle = compact
+        ? FilledButton.styleFrom(
+            minimumSize: const Size(100, 42),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+          )
+        : null;
+    final compactOutlinedStyle = compact
+        ? OutlinedButton.styleFrom(
+            minimumSize: const Size(96, 42),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+          )
+        : null;
+    final myListStyle = saved
+        ? OutlinedButton.styleFrom(
+            foregroundColor: AppColors.gold,
+            side: const BorderSide(color: AppColors.gold),
+            minimumSize: compact ? const Size(88, 42) : null,
+            padding: compact
+                ? const EdgeInsets.symmetric(horizontal: 12)
+                : null,
+          )
+        : compactOutlinedStyle;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(34, 0, 34, 90),
+      padding: EdgeInsets.fromLTRB(
+        compact ? 18 : 34,
+        0,
+        compact ? 18 : 34,
+        compact ? 70 : 90,
+      ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 640),
         child: Column(
@@ -277,6 +305,7 @@ class _HeroCopy extends ConsumerWidget {
                 fontWeight: FontWeight.w900,
                 height: 0.96,
                 letterSpacing: 0,
+                fontSize: compact ? 36 : null,
                 shadows: const [
                   Shadow(
                     color: Color(0xCC000000),
@@ -312,7 +341,7 @@ class _HeroCopy extends ConsumerWidget {
             const SizedBox(height: 16),
             Text(
               item.overview,
-              maxLines: 3,
+              maxLines: compact ? 2 : 3,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 color: AppColors.text.withValues(alpha: 0.92),
@@ -340,25 +369,20 @@ class _HeroCopy extends ConsumerWidget {
                   onPressed: onPlay,
                   icon: const Icon(Icons.play_arrow_rounded),
                   label: const Text('Play'),
+                  style: compactFilledStyle,
                 ),
                 OutlinedButton.icon(
                   onPressed: onMoreInfo,
                   icon: const Icon(Icons.info_outline_rounded),
                   label: const Text('More Info'),
+                  style: compactOutlinedStyle,
                 ),
                 OutlinedButton.icon(
                   onPressed: () =>
                       ref.read(watchlistProvider.notifier).toggle(item),
-                  icon: Icon(
-                    saved ? Icons.check_rounded : Icons.add_rounded,
-                  ),
+                  icon: Icon(saved ? Icons.check_rounded : Icons.add_rounded),
                   label: Text(saved ? 'In My List' : 'My List'),
-                  style: saved
-                      ? OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.gold,
-                          side: const BorderSide(color: AppColors.gold),
-                        )
-                      : null,
+                  style: myListStyle,
                 ),
               ],
             ),
@@ -466,13 +490,23 @@ class _HeroNav extends StatelessWidget {
           left: 12,
           top: 0,
           bottom: 0,
-          child: Center(child: _HeroNavButton(icon: Icons.chevron_left_rounded, onTap: onPrev)),
+          child: Center(
+            child: _HeroNavButton(
+              icon: Icons.chevron_left_rounded,
+              onTap: onPrev,
+            ),
+          ),
         ),
         Positioned(
           right: 12,
           top: 0,
           bottom: 0,
-          child: Center(child: _HeroNavButton(icon: Icons.chevron_right_rounded, onTap: onNext)),
+          child: Center(
+            child: _HeroNavButton(
+              icon: Icons.chevron_right_rounded,
+              onTap: onNext,
+            ),
+          ),
         ),
       ],
     );
@@ -514,10 +548,13 @@ class _Backdrop extends StatelessWidget {
     if (url == null) {
       return _HeroFallback(item: item);
     }
+    final size = MediaQuery.sizeOf(context);
 
     return SmartNetworkImage(
       imageUrl: url,
       fit: BoxFit.cover,
+      cacheWidth: size.width,
+      cacheHeight: (size.height * 0.75).clamp(460.0, 760.0).toDouble(),
       fallback: _HeroFallback(item: item),
     );
   }
@@ -607,6 +644,8 @@ class _Poster extends StatelessWidget {
       child: SmartNetworkImage(
         imageUrl: item.posterUrl!,
         fit: BoxFit.cover,
+        cacheWidth: 168,
+        cacheHeight: 252,
         fallback: _HeroFallback(item: item),
       ),
     );

@@ -85,12 +85,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       showSamples
                           ? 'Explore the Vault'
                           : isLoading
-                              ? 'Searching...'
-                              : '${results.length} results for "$query"',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge
-                          ?.copyWith(fontWeight: FontWeight.w900),
+                          ? 'Searching...'
+                          : '${results.length} results for "$query"',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                   ),
                   if (isLoading)
@@ -191,9 +190,7 @@ class _EmptyState extends StatelessWidget {
                   border: Border.all(color: Colors.white12, width: 1),
                 ),
                 child: Icon(
-                  hasError
-                      ? Icons.cloud_off_rounded
-                      : Icons.search_off_rounded,
+                  hasError ? Icons.cloud_off_rounded : Icons.search_off_rounded,
                   size: 32,
                   color: AppColors.muted,
                 ),

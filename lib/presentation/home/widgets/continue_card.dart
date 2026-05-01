@@ -5,10 +5,18 @@ import '../../../data/models/media_item.dart';
 import '../../common/smart_network_image.dart';
 
 class ContinueCard extends StatefulWidget {
-  const ContinueCard({required this.item, required this.onTap, super.key});
+  const ContinueCard({
+    required this.item,
+    required this.onTap,
+    this.width = 260,
+    this.height = 146,
+    super.key,
+  });
 
   final MediaItem item;
   final VoidCallback onTap;
+  final double width;
+  final double height;
 
   @override
   State<ContinueCard> createState() => _ContinueCardState();
@@ -30,7 +38,7 @@ class _ContinueCardState extends State<ContinueCard> {
           duration: const Duration(milliseconds: 150),
           scale: _hovered ? 1.025 : 1,
           child: Container(
-            width: 260,
+            width: widget.width,
             decoration: BoxDecoration(
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(8),
@@ -46,6 +54,8 @@ class _ContinueCardState extends State<ContinueCard> {
                   SmartNetworkImage(
                     imageUrl: artworkUrl,
                     fit: BoxFit.cover,
+                    cacheWidth: widget.width,
+                    cacheHeight: widget.height,
                     fallback: _ContinueFallback(item: widget.item),
                   )
                 else
@@ -103,7 +113,8 @@ class _ContinueCardState extends State<ContinueCard> {
                         children: [
                           Expanded(
                             child: Text(
-                              widget.item.seasonEpisodeLabel ?? 'Resume playback',
+                              widget.item.seasonEpisodeLabel ??
+                                  'Resume playback',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shimmer/shimmer.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../data/models/media_item.dart';
@@ -25,6 +24,28 @@ extension BrowseSectionRoute on BrowseSection {
       BrowseSection.anime => '/anime',
       BrowseSection.sports => '/sports',
       BrowseSection.myList => '/my-list',
+    };
+  }
+
+  String get label {
+    return switch (this) {
+      BrowseSection.home => 'Home',
+      BrowseSection.movies => 'Movies',
+      BrowseSection.tv => 'TV Shows',
+      BrowseSection.anime => 'Anime',
+      BrowseSection.sports => 'Sports',
+      BrowseSection.myList => 'My List',
+    };
+  }
+
+  IconData get icon {
+    return switch (this) {
+      BrowseSection.home => Icons.home_rounded,
+      BrowseSection.movies => Icons.movie_rounded,
+      BrowseSection.tv => Icons.live_tv_rounded,
+      BrowseSection.anime => Icons.auto_awesome_rounded,
+      BrowseSection.sports => Icons.sports_cricket_rounded,
+      BrowseSection.myList => Icons.bookmark_rounded,
     };
   }
 }
@@ -70,7 +91,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _onScroll() {
     final next = _scrollController.offset.clamp(0.0, 1000.0);
-    if ((next - _scrollOffset).abs() < 2) return;
+    if ((next - _scrollOffset).abs() < 28 &&
+        !(next == 0 && _scrollOffset > 0)) {
+      return;
+    }
     setState(() => _scrollOffset = next);
   }
 
@@ -91,13 +115,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 section: _section,
                 repository: ref.read(mediaRepositoryProvider),
                 scrollController: _scrollController,
+                scrollOffset: _scrollOffset,
               ),
-              loading: () => const _HomeSkeleton(),
+              loading: () => _HomeContent(
+                feed: _sampleFeed(),
+                section: _section,
+                repository: ref.read(mediaRepositoryProvider),
+                scrollController: _scrollController,
+                scrollOffset: _scrollOffset,
+              ),
               error: (error, stackTrace) => _HomeContent(
                 feed: _sampleFeed(),
                 section: _section,
                 repository: ref.read(mediaRepositoryProvider),
                 scrollController: _scrollController,
+                scrollOffset: _scrollOffset,
               ),
             ),
           _TopChrome(
@@ -245,12 +277,14 @@ class _HomeContent extends ConsumerWidget {
     required this.section,
     required this.repository,
     required this.scrollController,
+    required this.scrollOffset,
   });
 
   final HomeFeed feed;
   final BrowseSection section;
   final MediaRepository repository;
   final ScrollController scrollController;
+  final double scrollOffset;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -259,13 +293,13 @@ class _HomeContent extends ConsumerWidget {
       data: (records) => records.map((r) => r.toMedia()).toList(),
       orElse: () => const <MediaItem>[],
     );
+    final continueWatching = ref
+        .watch(continueWatchingProvider)
+        .maybeWhen(data: (items) => items, orElse: () => feed.continueWatching);
 
     final myListRows = <ContentCategory>[
-      if (feed.continueWatching.isNotEmpty)
-        ContentCategory(
-          title: 'Continue Watching',
-          items: feed.continueWatching,
-        ),
+      if (continueWatching.isNotEmpty)
+        ContentCategory(title: 'Continue Watching', items: continueWatching),
       ContentCategory(title: 'My List', items: watchlistItems),
       ContentCategory(
         title: 'Recently Saved',
@@ -286,9 +320,17 @@ class _HomeContent extends ConsumerWidget {
       return _MyListEmpty(scrollController: scrollController);
     }
 
+    final compact = MediaQuery.sizeOf(context).width < 720;
+    final visibleRowCount = rows.isEmpty
+        ? 0
+        : compact
+        ? (4 + (scrollOffset / 520).floor()).clamp(1, rows.length)
+        : rows.length;
+    final visibleRows = rows.take(visibleRowCount).toList();
+
     final seen = <String>{};
     final heroPool = <MediaItem>[];
-    for (final row in rows) {
+    for (final row in visibleRows) {
       for (final item in row.items) {
         if (!item.hasArtwork) continue;
         final key = '${item.mediaType.name}:${item.tmdbId}';
@@ -301,7 +343,9 @@ class _HomeContent extends ConsumerWidget {
 
     return CustomScrollView(
       controller: scrollController,
-      physics: const BouncingScrollPhysics(),
+      physics: compact
+          ? const ClampingScrollPhysics()
+          : const BouncingScrollPhysics(),
       slivers: [
         SliverToBoxAdapter(
           child: HeroBanner(
@@ -317,11 +361,11 @@ class _HomeContent extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (feed.continueWatching.isNotEmpty &&
+                if (continueWatching.isNotEmpty &&
                     section != BrowseSection.movies &&
                     section != BrowseSection.myList)
-                  _ContinueRow(items: feed.continueWatching),
-                for (final row in rows)
+                  _ContinueRow(items: continueWatching),
+                for (final row in visibleRows)
                   ContentRow(
                     key: ValueKey('${section.name}-${row.title}'),
                     title: row.title,
@@ -333,11 +377,68 @@ class _HomeContent extends ConsumerWidget {
                             page: page,
                           ),
                   ),
+                if (compact && visibleRowCount < rows.length)
+                  _MoreRowsHint(loaded: visibleRowCount, total: rows.length),
               ],
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _MoreRowsHint extends StatelessWidget {
+  const _MoreRowsHint({required this.loaded, required this.total});
+
+  final int loaded;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 0, 18, 30),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.surface.withValues(alpha: 0.72),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.white12),
+        ),
+        child: Row(
+          children: [
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.8,
+                valueColor: AlwaysStoppedAnimation(AppColors.gold),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Loading more rows as you scroll',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: AppColors.text.withValues(alpha: 0.76),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            Text(
+              '$loaded/$total',
+              style: const TextStyle(
+                color: AppColors.gold,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -351,7 +452,9 @@ class _MyListEmpty extends StatelessWidget {
   Widget build(BuildContext context) {
     return CustomScrollView(
       controller: scrollController,
-      physics: const BouncingScrollPhysics(),
+      physics: MediaQuery.sizeOf(context).width < 720
+          ? const ClampingScrollPhysics()
+          : const BouncingScrollPhysics(),
       slivers: [
         SliverFillRemaining(
           hasScrollBody: false,
@@ -422,26 +525,41 @@ class _ContinueRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width < 720;
+    final horizontalPadding = compact ? 18.0 : 34.0;
+    final cardWidth = compact
+        ? (MediaQuery.sizeOf(context).width * 0.78)
+              .clamp(256.0, 320.0)
+              .toDouble()
+        : 260.0;
+    final rowHeight = compact ? 168.0 : 156.0;
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 32),
+      padding: EdgeInsets.only(bottom: compact ? 28 : 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const _RowTitle('Continue Watching'),
           SizedBox(
-            height: 156,
+            height: rowHeight,
             child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 34),
+              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
               scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
+              cacheExtent: cardWidth * 3,
+              physics: compact
+                  ? const ClampingScrollPhysics()
+                  : const BouncingScrollPhysics(),
               itemBuilder: (context, index) {
                 final item = items[index];
                 return ContinueCard(
                   item: item,
+                  width: cardWidth,
+                  height: rowHeight,
                   onTap: () => context.push('/detail', extra: item),
                 );
               },
-              separatorBuilder: (context, index) => const SizedBox(width: 14),
+              separatorBuilder: (context, index) =>
+                  SizedBox(width: compact ? 12 : 14),
               itemCount: items.length,
             ),
           ),
@@ -458,8 +576,11 @@ class _RowTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final horizontalPadding = MediaQuery.sizeOf(context).width < 720
+        ? 18.0
+        : 34.0;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(34, 0, 34, 12),
+      padding: EdgeInsets.fromLTRB(horizontalPadding, 0, horizontalPadding, 12),
       child: Row(
         children: [
           Container(
@@ -498,6 +619,10 @@ class _TopChrome extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final compact = width < 760;
+    final horizontalPadding = compact ? 14.0 : 24.0;
+
     return Positioned(
       top: 0,
       left: 0,
@@ -506,10 +631,10 @@ class _TopChrome extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOutCubic,
         padding: EdgeInsets.fromLTRB(
-          24,
-          MediaQuery.paddingOf(context).top + 12,
-          24,
-          18,
+          horizontalPadding,
+          MediaQuery.paddingOf(context).top + (compact ? 8 : 12),
+          horizontalPadding,
+          compact ? 10 : 18,
         ),
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -527,84 +652,212 @@ class _TopChrome extends StatelessWidget {
             ),
           ),
         ),
-        child: Row(
-          children: [
-            const Text(
-              'STREAMVAULT',
-              style: TextStyle(
-                color: AppColors.gold,
-                fontSize: 22,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0,
+        child: compact
+            ? _CompactChrome(selected: selected, onSelected: onSelected)
+            : Row(
+                children: [
+                  const _BrandMark(),
+                  const SizedBox(width: 24),
+                  for (final section in BrowseSection.values)
+                    _NavLabel(
+                      section.label,
+                      active: selected == section,
+                      onTap: () => onSelected(section),
+                    ),
+                  const Spacer(),
+                  const _ChromeActions(),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+class _CompactChrome extends StatelessWidget {
+  const _CompactChrome({required this.selected, required this.onSelected});
+
+  final BrowseSection selected;
+  final ValueChanged<BrowseSection> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const _BrandMark(compact: true),
+        const SizedBox(width: 10),
+        PopupMenuButton<String>(
+          tooltip: 'Browse sections',
+          color: AppColors.surfaceRaised,
+          surfaceTintColor: Colors.transparent,
+          position: PopupMenuPosition.under,
+          onSelected: (value) {
+            if (value == 'search') {
+              context.push('/search');
+              return;
+            }
+            if (value == 'settings') {
+              context.push('/settings');
+              return;
+            }
+            final section = BrowseSection.values.firstWhere(
+              (candidate) => value == candidate.name,
+              orElse: () => selected,
+            );
+            onSelected(section);
+          },
+          itemBuilder: (context) => [
+            for (final section in BrowseSection.values)
+              PopupMenuItem(
+                value: section.name,
+                child: Row(
+                  children: [
+                    Icon(
+                      section.icon,
+                      color: selected == section
+                          ? AppColors.gold
+                          : AppColors.muted,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      section.label,
+                      style: TextStyle(
+                        color: selected == section
+                            ? AppColors.text
+                            : AppColors.muted,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            const PopupMenuDivider(),
+            const PopupMenuItem(
+              value: 'search',
+              child: Row(
+                children: [
+                  Icon(Icons.search_rounded, color: AppColors.gold, size: 18),
+                  SizedBox(width: 10),
+                  Text('Search', style: TextStyle(fontWeight: FontWeight.w800)),
+                ],
               ),
             ),
-            const SizedBox(width: 24),
-            _NavLabel(
-              'Home',
-              active: selected == BrowseSection.home,
-              onTap: () => onSelected(BrowseSection.home),
-            ),
-            _NavLabel(
-              'Movies',
-              active: selected == BrowseSection.movies,
-              onTap: () => onSelected(BrowseSection.movies),
-            ),
-            _NavLabel(
-              'TV Shows',
-              active: selected == BrowseSection.tv,
-              onTap: () => onSelected(BrowseSection.tv),
-            ),
-            _NavLabel(
-              'Anime',
-              active: selected == BrowseSection.anime,
-              onTap: () => onSelected(BrowseSection.anime),
-            ),
-            _NavLabel(
-              'Sports',
-              active: selected == BrowseSection.sports,
-              onTap: () => onSelected(BrowseSection.sports),
-            ),
-            _NavLabel(
-              'My List',
-              active: selected == BrowseSection.myList,
-              onTap: () => onSelected(BrowseSection.myList),
-            ),
-            const Spacer(),
-            IconButton(
-              tooltip: 'Search',
-              onPressed: () => context.push('/search'),
-              icon: const Icon(Icons.search_rounded),
-            ),
-            IconButton(
-              tooltip: 'Preferences',
-              onPressed: () => context.push('/settings'),
-              icon: const Icon(Icons.tune_rounded),
-            ),
-            const SizedBox(width: 8),
-            Tooltip(
-              message: 'Family profile and sync settings',
-              child: InkWell(
-                borderRadius: BorderRadius.circular(17),
-                onTap: () => context.push('/settings'),
-                child: Container(
-                  width: 34,
-                  height: 34,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.gold,
-                    borderRadius: BorderRadius.circular(17),
+            const PopupMenuItem(
+              value: 'settings',
+              child: Row(
+                children: [
+                  Icon(Icons.tune_rounded, color: AppColors.gold, size: 18),
+                  SizedBox(width: 10),
+                  Text(
+                    'Settings',
+                    style: TextStyle(fontWeight: FontWeight.w800),
                   ),
-                  child: const Icon(
-                    Icons.group_rounded,
-                    color: AppColors.ink,
-                    size: 18,
-                  ),
-                ),
+                ],
               ),
             ),
           ],
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 128),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.white12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(selected.icon, color: AppColors.gold, size: 17),
+                const SizedBox(width: 7),
+                Flexible(
+                  child: Text(
+                    selected.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.text,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const Icon(
+                  Icons.expand_more_rounded,
+                  color: AppColors.muted,
+                  size: 18,
+                ),
+              ],
+            ),
+          ),
         ),
+        const Spacer(),
+      ],
+    );
+  }
+}
+
+class _BrandMark extends StatelessWidget {
+  const _BrandMark({this.compact = false});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      compact ? 'VAULT' : 'STREAMVAULT',
+      maxLines: 1,
+      style: TextStyle(
+        color: AppColors.gold,
+        fontSize: compact ? 20 : 22,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 0,
       ),
+    );
+  }
+}
+
+class _ChromeActions extends StatelessWidget {
+  const _ChromeActions();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          tooltip: 'Search',
+          onPressed: () => context.push('/search'),
+          icon: const Icon(Icons.search_rounded),
+        ),
+        IconButton(
+          tooltip: 'Preferences',
+          onPressed: () => context.push('/settings'),
+          icon: const Icon(Icons.tune_rounded),
+        ),
+        const SizedBox(width: 8),
+        Tooltip(
+          message: 'Family profile and sync settings',
+          child: InkWell(
+            borderRadius: BorderRadius.circular(17),
+            onTap: () => context.push('/settings'),
+            child: Container(
+              width: 34,
+              height: 34,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.gold,
+                borderRadius: BorderRadius.circular(17),
+              ),
+              child: const Icon(
+                Icons.group_rounded,
+                color: AppColors.ink,
+                size: 18,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -649,47 +902,6 @@ class _NavLabel extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _HomeSkeleton extends StatelessWidget {
-  const _HomeSkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    return Shimmer.fromColors(
-      baseColor: AppColors.surface,
-      highlightColor: AppColors.surfaceRaised,
-      child: ListView(
-        physics: const NeverScrollableScrollPhysics(),
-        children: [
-          Container(height: 520, color: Colors.white),
-          const SizedBox(height: 30),
-          for (var row = 0; row < 6; row++)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(28, 0, 0, 28),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                physics: const NeverScrollableScrollPhysics(),
-                child: Row(
-                  children: [
-                    for (var i = 0; i < 5; i++)
-                      Container(
-                        margin: const EdgeInsets.only(right: 14),
-                        width: 286,
-                        height: 161,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-        ],
       ),
     );
   }

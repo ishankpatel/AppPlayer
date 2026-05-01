@@ -4,10 +4,7 @@ import '../../data/models/media_item.dart';
 import '../../providers.dart';
 
 class SearchResult {
-  const SearchResult({
-    required this.query,
-    required this.items,
-  });
+  const SearchResult({required this.query, required this.items});
 
   final String query;
   final List<MediaItem> items;
@@ -24,8 +21,9 @@ class SearchQueryNotifier extends Notifier<String> {
   }
 }
 
-final searchQueryProvider =
-    NotifierProvider<SearchQueryNotifier, String>(SearchQueryNotifier.new);
+final searchQueryProvider = NotifierProvider<SearchQueryNotifier, String>(
+  SearchQueryNotifier.new,
+);
 
 /// 300ms debounced live search across TMDB.searchMulti + Cinemeta searchAll
 /// (movie + series). Results are deduped by `${type}:${tmdbId}`.

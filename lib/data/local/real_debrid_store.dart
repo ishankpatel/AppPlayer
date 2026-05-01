@@ -1,39 +1,19 @@
 import 'dart:convert';
-import 'dart:io';
 
-import 'package:path/path.dart' as path;
-import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-/// Persists the user's Real-Debrid API key to
-/// `<appSupport>/real_debrid.json`. The key is base64-wrapped at rest as a
-/// minor obfuscation; for production deployments swap this for
-/// `flutter_secure_storage` (Keychain on iOS, Credential Manager on Windows).
+/// Persists the user's Real-Debrid API key per device.
+///
+/// This intentionally does not sync through Supabase. The value is wrapped only
+/// to avoid plain-text casual inspection; a production hardening pass can swap
+/// this for Keychain/Credential Manager on native targets.
 class RealDebridStore {
-  RealDebridStore();
-
-  File? _cachedFile;
-
-  Future<File> _file() async {
-    final cached = _cachedFile;
-    if (cached != null) return cached;
-    final dir = await getApplicationSupportDirectory();
-    final f = File(path.join(dir.path, 'real_debrid.json'));
-    if (!await f.exists()) {
-      await f.create(recursive: true);
-      await f.writeAsString('{}');
-    }
-    _cachedFile = f;
-    return f;
-  }
+  static const _key = 'streamvault_real_debrid_api_key';
 
   Future<String?> readApiKey() async {
     try {
-      final f = await _file();
-      final raw = await f.readAsString();
-      if (raw.trim().isEmpty) return null;
-      final json = jsonDecode(raw);
-      if (json is! Map) return null;
-      final wrapped = json['k'] as String?;
+      final prefs = await SharedPreferences.getInstance();
+      final wrapped = prefs.getString(_key);
       if (wrapped == null || wrapped.isEmpty) return null;
       return _unwrap(wrapped);
     } catch (_) {
@@ -42,13 +22,12 @@ class RealDebridStore {
   }
 
   Future<void> writeApiKey(String? apiKey) async {
-    final f = await _file();
-    if (apiKey == null || apiKey.isEmpty) {
-      await f.writeAsString('{}');
+    final prefs = await SharedPreferences.getInstance();
+    if (apiKey == null || apiKey.trim().isEmpty) {
+      await prefs.remove(_key);
       return;
     }
-    final wrapped = _wrap(apiKey);
-    await f.writeAsString(jsonEncode({'k': wrapped}));
+    await prefs.setString(_key, _wrap(apiKey.trim()));
   }
 
   String _wrap(String value) {

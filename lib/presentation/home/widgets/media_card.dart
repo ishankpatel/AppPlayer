@@ -7,10 +7,18 @@ import '../../common/smart_network_image.dart';
 import '../../watchlist/watchlist_provider.dart';
 
 class MediaCard extends ConsumerStatefulWidget {
-  const MediaCard({required this.item, required this.onTap, super.key});
+  const MediaCard({
+    required this.item,
+    required this.onTap,
+    this.width = 286,
+    this.imageHeight = 161,
+    super.key,
+  });
 
   final MediaItem item;
   final VoidCallback onTap;
+  final double width;
+  final double imageHeight;
 
   @override
   ConsumerState<MediaCard> createState() => _MediaCardState();
@@ -22,6 +30,7 @@ class _MediaCardState extends ConsumerState<MediaCard> {
   @override
   Widget build(BuildContext context) {
     final artworkUrl = widget.item.backdropUrl ?? widget.item.posterUrl;
+    final compact = widget.width < 270;
     final saved = ref.watch(
       isInWatchlistProvider((
         tmdbId: widget.item.tmdbId,
@@ -40,16 +49,16 @@ class _MediaCardState extends ConsumerState<MediaCard> {
           child: AnimatedScale(
             duration: const Duration(milliseconds: 220),
             curve: Curves.easeOutCubic,
-            scale: _focused ? 1.045 : 1,
+            scale: _focused ? (compact ? 1.018 : 1.045) : 1,
             child: SizedBox(
-              width: 286,
+              width: widget.width,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 220),
                     curve: Curves.easeOutCubic,
-                    height: 161,
+                    height: widget.imageHeight,
                     decoration: BoxDecoration(
                       color: AppColors.surface,
                       borderRadius: BorderRadius.circular(10),
@@ -82,6 +91,8 @@ class _MediaCardState extends ConsumerState<MediaCard> {
                           SmartNetworkImage(
                             imageUrl: artworkUrl,
                             fit: BoxFit.cover,
+                            cacheWidth: widget.width,
+                            cacheHeight: widget.imageHeight,
                             fallback: _ArtworkFallback(item: widget.item),
                           )
                         else
@@ -99,10 +110,7 @@ class _MediaCardState extends ConsumerState<MediaCard> {
                               gradient: LinearGradient(
                                 begin: Alignment.bottomCenter,
                                 end: Alignment.topCenter,
-                                colors: [
-                                  Color(0xB3000000),
-                                  Color(0x00000000),
-                                ],
+                                colors: [Color(0xB3000000), Color(0x00000000)],
                               ),
                             ),
                           ),

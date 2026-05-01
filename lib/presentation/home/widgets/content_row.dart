@@ -73,19 +73,34 @@ class _ContentRowState extends ConsumerState<ContentRow> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final compact = screenWidth < 720;
+    final horizontalPadding = compact ? 18.0 : 34.0;
+    final spacing = compact ? 12.0 : 14.0;
+    final cardWidth = compact
+        ? (screenWidth * 0.76).clamp(232.0, 286.0).toDouble()
+        : 286.0;
+    final cardHeight = cardWidth * 9 / 16;
+    final rowHeight = cardHeight + (compact ? 42.0 : 43.0);
+
     final cache = ref.watch(rowCacheProvider);
-    final entry = cache[widget.title] ??
-        RowCacheEntry(items: _dedupe(widget.items));
+    final entry =
+        cache[widget.title] ?? RowCacheEntry(items: _dedupe(widget.items));
     final items = entry.items.isEmpty ? _dedupe(widget.items) : entry.items;
     if (items.isEmpty) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 34),
+      padding: EdgeInsets.only(bottom: compact ? 28 : 34),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(34, 0, 34, 12),
+            padding: EdgeInsets.fromLTRB(
+              horizontalPadding,
+              0,
+              horizontalPadding,
+              12,
+            ),
             child: Row(
               children: [
                 Container(
@@ -129,32 +144,24 @@ class _ContentRowState extends ConsumerState<ContentRow> {
             ),
           ),
           SizedBox(
-            height: 204,
-            child: ShaderMask(
-              shaderCallback: (bounds) {
-                return const LinearGradient(
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                  colors: [
-                    Colors.transparent,
-                    Colors.white,
-                    Colors.white,
-                    Colors.transparent,
-                  ],
-                  stops: [0, 0.04, 0.96, 1],
-                ).createShader(bounds);
-              },
-              blendMode: BlendMode.dstIn,
+            height: rowHeight,
+            child: _EdgeFade(
+              enabled: !compact,
               child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 34),
+                padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
                 scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
+                physics: compact
+                    ? const ClampingScrollPhysics()
+                    : const BouncingScrollPhysics(),
+                cacheExtent: cardWidth * 3,
                 controller: _controller,
                 itemCount: items.length + (entry.hasMore ? 1 : 0),
-                separatorBuilder: (context, index) => const SizedBox(width: 14),
+                separatorBuilder: (context, index) => SizedBox(width: spacing),
                 itemBuilder: (context, index) {
                   if (index >= items.length) {
                     return _LoadMoreCard(
+                      width: cardWidth,
+                      height: cardHeight,
                       loading: entry.loading,
                       onTap: entry.loading ? null : _loadMore,
                     );
@@ -162,6 +169,8 @@ class _ContentRowState extends ConsumerState<ContentRow> {
                   final item = items[index];
                   return MediaCard(
                     item: item,
+                    width: cardWidth,
+                    imageHeight: cardHeight,
                     onTap: () => context.push('/detail', extra: item),
                   );
                 },
@@ -184,11 +193,47 @@ class _ContentRowState extends ConsumerState<ContentRow> {
   }
 }
 
+class _EdgeFade extends StatelessWidget {
+  const _EdgeFade({required this.child, required this.enabled});
+
+  final Widget child;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!enabled) return child;
+    return ShaderMask(
+      shaderCallback: (bounds) {
+        return const LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            Colors.transparent,
+            Colors.white,
+            Colors.white,
+            Colors.transparent,
+          ],
+          stops: [0, 0.04, 0.96, 1],
+        ).createShader(bounds);
+      },
+      blendMode: BlendMode.dstIn,
+      child: child,
+    );
+  }
+}
+
 class _LoadMoreCard extends StatelessWidget {
-  const _LoadMoreCard({required this.loading, required this.onTap});
+  const _LoadMoreCard({
+    required this.loading,
+    required this.onTap,
+    required this.width,
+    required this.height,
+  });
 
   final bool loading;
   final VoidCallback? onTap;
+  final double width;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
@@ -196,8 +241,8 @@ class _LoadMoreCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(8),
       onTap: onTap,
       child: Container(
-        width: 286,
-        height: 161,
+        width: width,
+        height: height,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: AppColors.surface,

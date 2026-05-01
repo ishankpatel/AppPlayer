@@ -35,7 +35,7 @@ class SettingsScreen extends ConsumerWidget {
           _Section(
             title: 'Cloud Sync',
             subtitle:
-                'Supabase sync runs behind the local cache when environment values are configured.',
+                'Use the same household login on every device so watchlist, progress, and preferences share one Supabase account.',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -44,8 +44,8 @@ class SettingsScreen extends ConsumerWidget {
                   label: supabaseConfigured
                       ? state.hasCloudSession
                             ? 'Supabase configured and signed in'
-                            : 'Supabase configured, session not started'
-                      : 'Supabase is not configured in .env',
+                            : 'Supabase configured, household sign-in needed'
+                      : 'Supabase is not configured for this build',
                   good: supabaseConfigured && state.hasCloudSession,
                 ),
                 const SizedBox(height: 10),
@@ -57,9 +57,42 @@ class SettingsScreen extends ConsumerWidget {
                   good: tmdbConfigured,
                 ),
                 const SizedBox(height: 16),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 620),
+                  child: Column(
+                    children: [
+                      TextFormField(
+                        initialValue: state.householdEmail,
+                        keyboardType: TextInputType.emailAddress,
+                        autofillHints: const [AutofillHints.email],
+                        decoration: const InputDecoration(
+                          labelText: 'Household email',
+                          hintText: 'family@example.com',
+                          prefixIcon: Icon(Icons.alternate_email_rounded),
+                        ),
+                        onChanged: controller.updateHouseholdEmail,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        initialValue: state.householdPassword,
+                        obscureText: true,
+                        enableSuggestions: false,
+                        autocorrect: false,
+                        autofillHints: const [AutofillHints.password],
+                        decoration: const InputDecoration(
+                          labelText: 'Shared password',
+                          hintText: 'Use this same password on each device',
+                          prefixIcon: Icon(Icons.lock_rounded),
+                        ),
+                        onChanged: controller.updateHouseholdPassword,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
                 FilledButton.icon(
                   onPressed: supabaseConfigured && !state.isStartingCloud
-                      ? controller.startCloudSession
+                      ? controller.startHouseholdSession
                       : null,
                   icon: state.isStartingCloud
                       ? const SizedBox(
@@ -67,8 +100,20 @@ class SettingsScreen extends ConsumerWidget {
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.sync_rounded),
-                  label: const Text('Start Household Sync Session'),
+                      : const Icon(Icons.group_rounded),
+                  label: Text(
+                    state.hasCloudSession
+                        ? 'Household Sync Active'
+                        : 'Sign In / Create Household',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Anonymous sessions are only useful for local testing. Cross-device sync requires the same email/password on Windows, iPhone, and future TV builds.',
+                  style: TextStyle(
+                    color: AppColors.text.withValues(alpha: 0.62),
+                    height: 1.4,
+                  ),
                 ),
                 if (state.error != null) ...[
                   const SizedBox(height: 14),
@@ -83,8 +128,8 @@ class SettingsScreen extends ConsumerWidget {
           const _Section(
             title: 'Playback',
             subtitle:
-                'The local player shell is included. External provider integrations are intentionally not included in this handoff.',
-            child: _PreferenceGrid(),
+                'Real-Debrid resolves authorized links into direct streams; media_kit handles native playback and track controls.',
+            child: _PlaybackPreferencePanel(),
           ),
           const SizedBox(height: 18),
           const _Section(
@@ -186,6 +231,99 @@ class _Section extends StatelessWidget {
   }
 }
 
+class _PlaybackPreferencePanel extends ConsumerWidget {
+  const _PlaybackPreferencePanel();
+
+  static const _languages = <MapEntry<String, String>>[
+    MapEntry('en', 'English'),
+    MapEntry('hi', 'Hindi'),
+    MapEntry('gu', 'Gujarati'),
+    MapEntry('es', 'Spanish'),
+    MapEntry('fr', 'French'),
+    MapEntry('ja', 'Japanese'),
+    MapEntry('ko', 'Korean'),
+  ];
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(settingsProvider);
+    final controller = ref.read(settingsProvider.notifier);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            SizedBox(
+              width: 260,
+              child: DropdownButtonFormField<String>(
+                initialValue: _normalizedLanguage(state.preferredSubtitleLang),
+                decoration: const InputDecoration(
+                  labelText: 'Preferred subtitles',
+                  prefixIcon: Icon(Icons.subtitles_rounded),
+                ),
+                items: [
+                  for (final option in _languages)
+                    DropdownMenuItem(
+                      value: option.key,
+                      child: Text(option.value),
+                    ),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    controller.updatePreferredSubtitleLang(value);
+                  }
+                },
+              ),
+            ),
+            SizedBox(
+              width: 260,
+              child: DropdownButtonFormField<String>(
+                initialValue: _normalizedLanguage(state.preferredAudioLang),
+                decoration: const InputDecoration(
+                  labelText: 'Preferred audio',
+                  prefixIcon: Icon(Icons.graphic_eq_rounded),
+                ),
+                items: [
+                  for (final option in _languages)
+                    DropdownMenuItem(
+                      value: option.key,
+                      child: Text(option.value),
+                    ),
+                ],
+                onChanged: (value) {
+                  if (value != null) controller.updatePreferredAudioLang(value);
+                },
+              ),
+            ),
+            FilledButton.icon(
+              onPressed: state.isSavingPreferences
+                  ? null
+                  : controller.savePlaybackPreferences,
+              icon: state.isSavingPreferences
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.cloud_upload_rounded),
+              label: const Text('Save Preferences'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        const _PreferenceGrid(),
+      ],
+    );
+  }
+
+  String _normalizedLanguage(String value) {
+    return _languages.any((option) => option.key == value) ? value : 'en';
+  }
+}
+
 class _PreferenceGrid extends StatelessWidget {
   const _PreferenceGrid();
 
@@ -272,8 +410,7 @@ class _RealDebridSection extends ConsumerStatefulWidget {
   const _RealDebridSection();
 
   @override
-  ConsumerState<_RealDebridSection> createState() =>
-      _RealDebridSectionState();
+  ConsumerState<_RealDebridSection> createState() => _RealDebridSectionState();
 }
 
 class _RealDebridSectionState extends ConsumerState<_RealDebridSection> {
@@ -336,8 +473,8 @@ class _RealDebridSectionState extends ConsumerState<_RealDebridSection> {
             icon: Icons.vpn_key_rounded,
             label: settings.hasKey
                 ? settings.error == null
-                    ? 'Key saved, tap "Test & Save" to validate'
-                    : 'Key needs attention'
+                      ? 'Key saved, tap "Test & Save" to validate'
+                      : 'Key needs attention'
                 : 'No Real-Debrid key configured',
             good: false,
           ),
@@ -347,9 +484,7 @@ class _RealDebridSectionState extends ConsumerState<_RealDebridSection> {
           obscureText: _obscure,
           enableSuggestions: false,
           autocorrect: false,
-          inputFormatters: [
-            FilteringTextInputFormatter.deny(RegExp(r'\s')),
-          ],
+          inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'\s'))],
           decoration: InputDecoration(
             labelText: 'API key',
             hintText: 'Paste your Real-Debrid token',
@@ -392,8 +527,9 @@ class _RealDebridSectionState extends ConsumerState<_RealDebridSection> {
                   ? null
                   : () async {
                       final messenger = ScaffoldMessenger.of(context);
-                      final ok = await controller
-                          .saveAndValidate(_controller.text);
+                      final ok = await controller.saveAndValidate(
+                        _controller.text,
+                      );
                       if (!mounted) return;
                       messenger.showSnackBar(
                         SnackBar(
@@ -428,8 +564,9 @@ class _RealDebridSectionState extends ConsumerState<_RealDebridSection> {
                       if (!mounted) return;
                       messenger.showSnackBar(
                         const SnackBar(
-                          content:
-                              Text('Real-Debrid key removed from this device.'),
+                          content: Text(
+                            'Real-Debrid key removed from this device.',
+                          ),
                           behavior: SnackBarBehavior.floating,
                         ),
                       );
@@ -465,18 +602,14 @@ class _RealDebridSectionState extends ConsumerState<_RealDebridSection> {
 }
 
 class _AccountCard extends StatelessWidget {
-  const _AccountCard({
-    required this.user,
-    required this.remainingTrafficBytes,
-  });
+  const _AccountCard({required this.user, required this.remainingTrafficBytes});
 
   final RealDebridUser user;
   final int remainingTrafficBytes;
 
   @override
   Widget build(BuildContext context) {
-    final remainingDays =
-        (user.premiumRemaining.inHours / 24).round();
+    final remainingDays = (user.premiumRemaining.inHours / 24).round();
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -503,10 +636,7 @@ class _AccountCard extends StatelessWidget {
                 ? NetworkImage(user.avatar)
                 : null,
             child: user.avatar.isEmpty
-                ? const Icon(
-                    Icons.person_rounded,
-                    color: AppColors.gold,
-                  )
+                ? const Icon(Icons.person_rounded, color: AppColors.gold)
                 : null,
           ),
           const SizedBox(width: 14),
@@ -518,7 +648,9 @@ class _AccountCard extends StatelessWidget {
                   children: [
                     Flexible(
                       child: Text(
-                        user.username.isEmpty ? 'Real-Debrid user' : user.username,
+                        user.username.isEmpty
+                            ? 'Real-Debrid user'
+                            : user.username,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -531,7 +663,9 @@ class _AccountCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: user.isPremium
                             ? AppColors.gold
@@ -567,7 +701,8 @@ class _AccountCard extends StatelessWidget {
                       _MetaText('$remainingDays days remaining'),
                     if (remainingTrafficBytes > 0)
                       _MetaText(
-                          '${_formatBytes(remainingTrafficBytes)} hoster traffic left'),
+                        '${_formatBytes(remainingTrafficBytes)} hoster traffic left',
+                      ),
                     if (user.email.isNotEmpty) _MetaText(user.email),
                   ],
                 ),

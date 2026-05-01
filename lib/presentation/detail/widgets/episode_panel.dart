@@ -19,7 +19,7 @@ class EpisodePanel extends ConsumerStatefulWidget {
 
   final MediaItem media;
   final void Function(int seasonNumber, int episodeNumber, String label)
-      onPlayEpisode;
+  onPlayEpisode;
 
   @override
   ConsumerState<EpisodePanel> createState() => _EpisodePanelState();
@@ -56,7 +56,9 @@ class _EpisodePanelState extends ConsumerState<EpisodePanel> {
 
   @override
   Widget build(BuildContext context) {
-    final detailsAsync = ref.watch(tvDetailsProvider(widget.media.tmdbId));
+    final detailsAsync = ref.watch(
+      tvDetailsForMediaProvider(TvDetailsKey.fromMedia(widget.media)),
+    );
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -95,7 +97,13 @@ class _EpisodePanelState extends ConsumerState<EpisodePanel> {
       orElse: () => seasons.first,
     );
     final episodesAsync = ref.watch(
-      tvSeasonProvider(SeasonKey(widget.media.tmdbId, season.seasonNumber)),
+      tvSeasonProvider(
+        SeasonKey(
+          widget.media.tmdbId,
+          season.seasonNumber,
+          imdbId: widget.media.imdbId,
+        ),
+      ),
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -219,8 +227,10 @@ class _EpisodePanelState extends ConsumerState<EpisodePanel> {
               ),
               decoration: InputDecoration(
                 isDense: true,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
                 border: InputBorder.none,
                 hintText: 'Filter episodes by title or number...',
                 hintStyle: const TextStyle(
@@ -253,9 +263,10 @@ class _EpisodePanelState extends ConsumerState<EpisodePanel> {
     final filtered = _filter.isEmpty
         ? episodes
         : episodes.where((e) {
-            final hay = '${e.title} S${e.seasonNumber} E${e.episodeNumber} '
-                    '${e.label} ${e.overview}'
-                .toLowerCase();
+            final hay =
+                '${e.title} S${e.seasonNumber} E${e.episodeNumber} '
+                        '${e.label} ${e.overview}'
+                    .toLowerCase();
             return hay.contains(_filter);
           }).toList();
     if (filtered.isEmpty) {
@@ -426,9 +437,22 @@ class _EpisodeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final seriesArtworkUrl = media.backdropUrl ?? media.posterUrl;
     final stillUrl = episode.stillPath != null
         ? ImageUtils.tmdbBackdrop(episode.stillPath)
-        : (media.backdropUrl ?? media.posterUrl);
+        : seriesArtworkUrl;
+    final rowFallback = _RowFallback(media: media, episode: episode);
+    final imageFallback =
+        seriesArtworkUrl != null && seriesArtworkUrl != stillUrl
+        ? SmartNetworkImage(
+            imageUrl: seriesArtworkUrl,
+            fit: BoxFit.cover,
+            fallback: rowFallback,
+            cacheWidth: 168,
+            cacheHeight: 95,
+            enableShimmer: false,
+          )
+        : rowFallback;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -457,10 +481,12 @@ class _EpisodeRow extends StatelessWidget {
                         SmartNetworkImage(
                           imageUrl: stillUrl,
                           fit: BoxFit.cover,
-                          fallback: _RowFallback(media: media, episode: episode),
+                          cacheWidth: 168,
+                          cacheHeight: 95,
+                          fallback: imageFallback,
                         )
                       else
-                        _RowFallback(media: media, episode: episode),
+                        rowFallback,
                       const DecoratedBox(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
@@ -470,11 +496,7 @@ class _EpisodeRow extends StatelessWidget {
                           ),
                         ),
                       ),
-                      Positioned(
-                        left: 6,
-                        top: 6,
-                        child: _Badge(episode.label),
-                      ),
+                      Positioned(left: 6, top: 6, child: _Badge(episode.label)),
                       const Positioned(
                         right: 4,
                         bottom: 4,
@@ -522,9 +544,10 @@ class _EpisodeRow extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       episode.overview.isEmpty
-                          ? (episode.airDate != null && episode.airDate!.isNotEmpty
-                              ? 'Aired ${episode.airDate}'
-                              : 'Tap to play this episode in the native player.')
+                          ? (episode.airDate != null &&
+                                    episode.airDate!.isNotEmpty
+                                ? 'Aired ${episode.airDate}'
+                                : 'Tap to play this episode in the native player.')
                           : episode.overview,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,

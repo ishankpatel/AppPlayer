@@ -9,7 +9,7 @@ param(
 
 $webDir = Join-Path $PSScriptRoot 'build\web'
 if (-not (Test-Path $webDir)) {
-    Write-Host "ERROR: $webDir not found. Run 'flutter build web --release' first."
+    Write-Host "ERROR: $webDir not found. Run 'flutter build web --release --pwa-strategy=none --no-wasm-dry-run' first."
     exit 1
 }
 

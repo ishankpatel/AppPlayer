@@ -4,10 +4,14 @@
   Referrer-Policy: strict-origin-when-cross-origin
 
 /flutter_service_worker.js
-  Cache-Control: no-cache
+  Cache-Control: no-store
+  Clear-Site-Data: "cache"
 
 /main.dart.js
-  Cache-Control: public, max-age=31536000, immutable
+  Cache-Control: no-cache
+
+/flutter_bootstrap.js
+  Cache-Control: no-cache
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable

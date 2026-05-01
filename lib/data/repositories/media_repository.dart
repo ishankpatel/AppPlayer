@@ -48,7 +48,7 @@ class MediaRepository {
     final recentPlayback = await _database.getRecentPlayback();
 
     try {
-      final allTitles = _allRowTitles;
+      final allTitles = _initialRowTitles;
       final rowResults = await Future.wait(
         allTitles.map((title) => loadMoreCategory(title, page: 1)),
       );
@@ -182,6 +182,10 @@ class MediaRepository {
     ];
     final resolved = await Future.wait(
       selected.map((seed) async {
+        final sampled = _sampleForSeed(seed);
+        if (sampled != null) {
+          return sampled.copyWith(tags: _fallbackTags(title, seed));
+        }
         try {
           final item = await _cinemeta.searchFirst(
             query: seed.title,
@@ -195,7 +199,9 @@ class MediaRepository {
             releaseYear: item.releaseYear == 'New' || item.releaseYear.isEmpty
                 ? seed.releaseYear
                 : item.releaseYear,
-            voteAverage: item.voteAverage > 0 ? item.voteAverage : fallbackRating,
+            voteAverage: item.voteAverage > 0
+                ? item.voteAverage
+                : fallbackRating,
             tags: _fallbackTags(title, seed),
           );
         } catch (_) {
@@ -206,9 +212,26 @@ class MediaRepository {
     return resolved.toList();
   }
 
+  MediaItem? _sampleForSeed(_FallbackSeed seed) {
+    final seedKey = _normalizedSeedTitle(seed.title);
+    for (final item in MediaItem.samples) {
+      if (item.mediaType != seed.mediaType) continue;
+      if (_normalizedSeedTitle(item.title) == seedKey) return item;
+    }
+    return null;
+  }
+
+  String _normalizedSeedTitle(String value) {
+    return value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
+  }
+
   bool _shouldOverrideGenre(String genre) {
     final g = genre.toLowerCase();
-    return g.isEmpty || g == 'cinema' || g == 'film' || g == 'series' || g == 'drama';
+    return g.isEmpty ||
+        g == 'cinema' ||
+        g == 'film' ||
+        g == 'series' ||
+        g == 'drama';
   }
 
   double _ratingFor(String seedTitle) {
@@ -319,6 +342,7 @@ class MediaRepository {
     _RowTitles.topOnNetflix,
     _RowTitles.trendingNow,
     _RowTitles.topHindi,
+    _RowTitles.gujaratiMovies,
     _RowTitles.hindiWebSeries,
     _RowTitles.hindiDubbedHits,
     _RowTitles.tamilTeluguHits,
@@ -351,6 +375,20 @@ class MediaRepository {
     _RowTitles.animeMovies,
     _RowTitles.classicAnime,
     _RowTitles.newSeasonAnime,
+  ];
+
+  static const _initialRowTitles = <String>[
+    _RowTitles.topOnNetflix,
+    _RowTitles.trendingNow,
+    _RowTitles.topHindi,
+    _RowTitles.gujaratiMovies,
+    _RowTitles.hindiWebSeries,
+    _RowTitles.hindiDubbedHits,
+    _RowTitles.newReleases,
+    _RowTitles.actionThrillers,
+    _RowTitles.sciFiVault,
+    _RowTitles.animeSpotlight,
+    _RowTitles.seriesWorthStarting,
   ];
 
   static final List<_RowConfig> _homeRows = [
@@ -394,6 +432,19 @@ class MediaRepository {
       ),
     ),
     _RowConfig(
+      title: _RowTitles.gujaratiMovies,
+      tags: const ['gujarati'],
+      minItems: 6,
+      fetch: (api, page) => api.discoverMovies(
+        page: page,
+        withOriginalLanguage: 'gu',
+        withOriginCountry: 'IN',
+        region: 'IN',
+        voteCountGte: 5,
+        sortBy: 'popularity.desc',
+      ),
+    ),
+    _RowConfig(
       title: _RowTitles.hindiDubbedHits,
       tags: const ['hindi-dubbed'],
       minItems: 8,
@@ -422,8 +473,11 @@ class MediaRepository {
       title: _RowTitles.actionThrillers,
       tags: const ['action', 'thriller'],
       minItems: 8,
-      fetch: (api, page) =>
-          api.discoverMovies(page: page, withGenres: '28|53', voteCountGte: 200),
+      fetch: (api, page) => api.discoverMovies(
+        page: page,
+        withGenres: '28|53',
+        voteCountGte: 200,
+      ),
       cinemetaFallback: (api, page) =>
           api.catalog(mediaType: MediaType.movie, page: page, genre: 'Action'),
     ),
@@ -504,6 +558,19 @@ class MediaRepository {
       ),
     ),
     _RowConfig(
+      title: _RowTitles.gujaratiMovies,
+      tags: const ['gujarati'],
+      minItems: 6,
+      fetch: (api, page) => api.discoverMovies(
+        page: page,
+        withOriginalLanguage: 'gu',
+        withOriginCountry: 'IN',
+        region: 'IN',
+        voteCountGte: 5,
+        sortBy: 'popularity.desc',
+      ),
+    ),
+    _RowConfig(
       title: _RowTitles.koreanCinema,
       minItems: 6,
       fetch: (api, page) => api.discoverMovies(
@@ -515,11 +582,8 @@ class MediaRepository {
     _RowConfig(
       title: _RowTitles.comedyMovies,
       minItems: 8,
-      fetch: (api, page) => api.discoverMovies(
-        page: page,
-        withGenres: '35',
-        voteCountGte: 200,
-      ),
+      fetch: (api, page) =>
+          api.discoverMovies(page: page, withGenres: '35', voteCountGte: 200),
       cinemetaFallback: (api, page) =>
           api.catalog(mediaType: MediaType.movie, page: page, genre: 'Comedy'),
     ),
@@ -538,11 +602,8 @@ class MediaRepository {
     _RowConfig(
       title: _RowTitles.horrorPicks,
       minItems: 8,
-      fetch: (api, page) => api.discoverMovies(
-        page: page,
-        withGenres: '27',
-        voteCountGte: 200,
-      ),
+      fetch: (api, page) =>
+          api.discoverMovies(page: page, withGenres: '27', voteCountGte: 200),
       cinemetaFallback: (api, page) =>
           api.catalog(mediaType: MediaType.movie, page: page, genre: 'Horror'),
     ),
@@ -587,21 +648,15 @@ class MediaRepository {
     _RowConfig(
       title: _RowTitles.crimeMystery,
       minItems: 8,
-      fetch: (api, page) => api.discoverTv(
-        page: page,
-        withGenres: '80|9648',
-        voteCountGte: 100,
-      ),
+      fetch: (api, page) =>
+          api.discoverTv(page: page, withGenres: '80|9648', voteCountGte: 100),
     ),
     _RowConfig(
       title: _RowTitles.sciFiSeries,
       tags: const ['sci-fi'],
       minItems: 8,
-      fetch: (api, page) => api.discoverTv(
-        page: page,
-        withGenres: '10765',
-        voteCountGte: 100,
-      ),
+      fetch: (api, page) =>
+          api.discoverTv(page: page, withGenres: '10765', voteCountGte: 100),
       cinemetaFallback: (api, page) =>
           api.catalog(mediaType: MediaType.tv, page: page, genre: 'Sci-Fi'),
     ),
@@ -609,11 +664,8 @@ class MediaRepository {
       title: _RowTitles.actionSeries,
       tags: const ['action'],
       minItems: 8,
-      fetch: (api, page) => api.discoverTv(
-        page: page,
-        withGenres: '10759',
-        voteCountGte: 100,
-      ),
+      fetch: (api, page) =>
+          api.discoverTv(page: page, withGenres: '10759', voteCountGte: 100),
       cinemetaFallback: (api, page) =>
           api.catalog(mediaType: MediaType.tv, page: page, genre: 'Action'),
     ),
@@ -793,7 +845,9 @@ class MediaRepository {
   // --- Helpers ---------------------------------------------------------------
 
   Map<String, List<MediaItem>> _fallbackRowMap() {
-    return {for (final title in _allRowTitles) title: _fallbackCategory(title, 1)};
+    return {
+      for (final title in _allRowTitles) title: _fallbackCategory(title, 1),
+    };
   }
 
   List<MediaItem> _fallbackCategory(String title, int page) {
@@ -816,7 +870,9 @@ class MediaRepository {
   List<MediaItem> _fallbackBase(String title) {
     final sample = MediaItem.samples;
     final lower = title.toLowerCase();
-    if (lower.contains('hindi') || lower.contains('bollywood') || lower.contains('tamil')) {
+    if (lower.contains('hindi') ||
+        lower.contains('bollywood') ||
+        lower.contains('tamil')) {
       return _tag(sample, 'top-hindi');
     }
     if (lower.contains('anime')) return _tag(sample, 'anime');
@@ -825,16 +881,20 @@ class MediaRepository {
     if (lower.contains('sci-fi') || lower.contains('sci fi')) {
       return _tag(sample, 'sci-fi');
     }
-    if (lower.contains('action') || lower.contains('thriller') ||
+    if (lower.contains('action') ||
+        lower.contains('thriller') ||
         lower.contains('shounen')) {
       return _tag(sample, 'action');
     }
     if (lower.contains('series') || lower.contains('tv')) {
       return sample.where((m) => m.mediaType == MediaType.tv).toList();
     }
-    if (lower.contains('movie') || lower.contains('release') ||
-        lower.contains('cinema') || lower.contains('drama') ||
-        lower.contains('comedy') || lower.contains('horror')) {
+    if (lower.contains('movie') ||
+        lower.contains('release') ||
+        lower.contains('cinema') ||
+        lower.contains('drama') ||
+        lower.contains('comedy') ||
+        lower.contains('horror')) {
       return sample.where((m) => m.mediaType == MediaType.movie).toList();
     }
     return sample;
@@ -851,7 +911,11 @@ class MediaRepository {
     // Dedupe within page so a row never repeats the same title locally.
     final seenTitles = <String>{};
     return pageSeeds
-        .where((seed) => seenTitles.add('${seed.mediaType.name}:${seed.title.toLowerCase()}'))
+        .where(
+          (seed) => seenTitles.add(
+            '${seed.mediaType.name}:${seed.title.toLowerCase()}',
+          ),
+        )
         .map((seed) => _seedToMediaItem(title, seed, page))
         .toList();
   }
@@ -865,9 +929,12 @@ class MediaRepository {
       primary = _netflixFallbackSeeds;
     } else if (lower.contains('hindi web') || lower.contains('hindi series')) {
       primary = _hindiTvSeeds;
-    } else if (lower.contains('bollywood') || lower.contains('top hindi') ||
+    } else if (lower.contains('bollywood') ||
+        lower.contains('top hindi') ||
         lower.contains('latest hindi')) {
       primary = _hindiMovieSeeds;
+    } else if (lower.contains('gujarati') || lower.contains('gujrati')) {
+      primary = _gujaratiMovieSeeds;
     } else if (lower.contains('hindi dubbed') || lower.contains('dubbed')) {
       primary = _hindiDubbedSeeds;
     } else if (lower.contains('tamil') || lower.contains('telugu')) {
@@ -909,10 +976,13 @@ class MediaRepository {
       primary = _sciFiFallbackSeeds;
     } else if (lower.contains('action') || lower.contains('thriller')) {
       primary = _actionFallbackSeeds;
-    } else if (lower.contains('top tv') || lower.contains('top rated tv') ||
-        lower.contains('currently airing') || lower.contains('series')) {
+    } else if (lower.contains('top tv') ||
+        lower.contains('top rated tv') ||
+        lower.contains('currently airing') ||
+        lower.contains('series')) {
       primary = _seriesFallbackSeeds;
-    } else if (lower.contains('movie') || lower.contains('release') ||
+    } else if (lower.contains('movie') ||
+        lower.contains('release') ||
         lower.contains('cinema')) {
       primary = _movieFallbackSeeds;
     } else {
@@ -938,6 +1008,9 @@ class MediaRepository {
     if (lowerTitle.contains('hindi') || lowerTitle.contains('bollywood')) {
       tags.add('top-hindi');
     }
+    if (lowerTitle.contains('gujarati') || lowerTitle.contains('gujrati')) {
+      tags.add('gujarati');
+    }
     if (lowerTitle.contains('dubbed')) tags.add('hindi-dubbed');
     if (lowerTitle.contains('anime')) tags.add('anime');
     if (lowerTitle.contains('sci-fi')) tags.add('sci-fi');
@@ -945,7 +1018,8 @@ class MediaRepository {
       tags.add('action');
     }
     if (lowerTitle.contains('family')) tags.add('family');
-    if (lowerTitle.contains('new') || lowerTitle.contains('latest') ||
+    if (lowerTitle.contains('new') ||
+        lowerTitle.contains('latest') ||
         lowerTitle.contains('currently airing')) {
       tags.add('new');
     }
@@ -1053,6 +1127,7 @@ class _RowTitles {
   static const topHindi = 'Top Hindi';
   static const hindiWebSeries = 'Hindi Web Series';
   static const hindiDubbedHits = 'Hindi-Dubbed Hollywood';
+  static const gujaratiMovies = 'Gujarati Movies';
   static const tamilTeluguHits = 'Tamil & Telugu Hits';
   static const newReleases = 'New Releases';
   static const actionThrillers = 'Action & Thrillers';
@@ -1088,15 +1163,11 @@ class _RowTitles {
   static const classicAnime = 'Classic Anime';
 }
 
-typedef _TmdbFetcher = Future<List<MediaItem>> Function(
-  TmdbRemoteDataSource api,
-  int page,
-);
+typedef _TmdbFetcher =
+    Future<List<MediaItem>> Function(TmdbRemoteDataSource api, int page);
 
-typedef _CinemetaFetcher = Future<List<MediaItem>> Function(
-  CinemetaRemoteDataSource api,
-  int page,
-);
+typedef _CinemetaFetcher =
+    Future<List<MediaItem>> Function(CinemetaRemoteDataSource api, int page);
 
 class _RowConfig {
   _RowConfig({
@@ -1132,7 +1203,12 @@ class _FallbackSeed {
 
 const _movieFallbackSeeds = <_FallbackSeed>[
   _FallbackSeed('The Batman', MediaType.movie, 'Action', '2022'),
-  _FallbackSeed('Mission: Impossible - Fallout', MediaType.movie, 'Action', '2018'),
+  _FallbackSeed(
+    'Mission: Impossible - Fallout',
+    MediaType.movie,
+    'Action',
+    '2018',
+  ),
   _FallbackSeed('Blade Runner 2049', MediaType.movie, 'Sci-Fi', '2017'),
   _FallbackSeed('Mad Max: Fury Road', MediaType.movie, 'Action', '2015'),
   _FallbackSeed('John Wick: Chapter 4', MediaType.movie, 'Action', '2023'),
@@ -1206,7 +1282,12 @@ const _animeFallbackSeeds = <_FallbackSeed>[
 const _shounenAnimeSeeds = <_FallbackSeed>[
   _FallbackSeed('My Hero Academia', MediaType.tv, 'Anime', '2016'),
   _FallbackSeed('Naruto Shippuden', MediaType.tv, 'Anime', '2007'),
-  _FallbackSeed('Bleach: Thousand-Year Blood War', MediaType.tv, 'Anime', '2022'),
+  _FallbackSeed(
+    'Bleach: Thousand-Year Blood War',
+    MediaType.tv,
+    'Anime',
+    '2022',
+  ),
   _FallbackSeed('Black Clover', MediaType.tv, 'Anime', '2017'),
   _FallbackSeed('Hunter x Hunter', MediaType.tv, 'Anime', '2011'),
   _FallbackSeed('Demon Slayer', MediaType.tv, 'Anime', '2019'),
@@ -1234,7 +1315,12 @@ const _fantasyAnimeSeeds = <_FallbackSeed>[
   _FallbackSeed('Re: Zero', MediaType.tv, 'Anime', '2016'),
   _FallbackSeed('Mushoku Tensei', MediaType.tv, 'Anime', '2021'),
   _FallbackSeed('Overlord', MediaType.tv, 'Anime', '2015'),
-  _FallbackSeed('That Time I Got Reincarnated as a Slime', MediaType.tv, 'Anime', '2018'),
+  _FallbackSeed(
+    'That Time I Got Reincarnated as a Slime',
+    MediaType.tv,
+    'Anime',
+    '2018',
+  ),
   _FallbackSeed('Konosuba', MediaType.tv, 'Anime', '2016'),
   _FallbackSeed('No Game No Life', MediaType.tv, 'Anime', '2014'),
   _FallbackSeed('Sword Art Online', MediaType.tv, 'Anime', '2012'),
@@ -1246,9 +1332,19 @@ const _classicAnimeSeeds = <_FallbackSeed>[
   _FallbackSeed('Cowboy Bebop', MediaType.tv, 'Anime', '1998'),
   _FallbackSeed('Neon Genesis Evangelion', MediaType.tv, 'Anime', '1995'),
   _FallbackSeed('Dragon Ball Z', MediaType.tv, 'Anime', '1989'),
-  _FallbackSeed('Fullmetal Alchemist: Brotherhood', MediaType.tv, 'Anime', '2009'),
+  _FallbackSeed(
+    'Fullmetal Alchemist: Brotherhood',
+    MediaType.tv,
+    'Anime',
+    '2009',
+  ),
   _FallbackSeed('Death Note', MediaType.tv, 'Anime', '2006'),
-  _FallbackSeed('Ghost in the Shell: Stand Alone Complex', MediaType.tv, 'Anime', '2002'),
+  _FallbackSeed(
+    'Ghost in the Shell: Stand Alone Complex',
+    MediaType.tv,
+    'Anime',
+    '2002',
+  ),
   _FallbackSeed('Trigun', MediaType.tv, 'Anime', '1998'),
   _FallbackSeed('Yu Yu Hakusho', MediaType.tv, 'Anime', '1992'),
   _FallbackSeed('Rurouni Kenshin', MediaType.tv, 'Anime', '1996'),
@@ -1273,10 +1369,25 @@ const _currentAnimeSeeds = <_FallbackSeed>[
   _FallbackSeed('Solo Leveling Season 2', MediaType.tv, 'Anime', '2025'),
   _FallbackSeed('Dandadan', MediaType.tv, 'Anime', '2024'),
   _FallbackSeed('Wind Breaker', MediaType.tv, 'Anime', '2024'),
-  _FallbackSeed('My Hero Academia: Final Season', MediaType.tv, 'Anime', '2025'),
-  _FallbackSeed('Bleach: Thousand-Year Blood War Part 3', MediaType.tv, 'Anime', '2024'),
+  _FallbackSeed(
+    'My Hero Academia: Final Season',
+    MediaType.tv,
+    'Anime',
+    '2025',
+  ),
+  _FallbackSeed(
+    'Bleach: Thousand-Year Blood War Part 3',
+    MediaType.tv,
+    'Anime',
+    '2024',
+  ),
   _FallbackSeed('Mashle: Magic and Muscles 2', MediaType.tv, 'Anime', '2024'),
-  _FallbackSeed('The Eminence in Shadow Season 2', MediaType.tv, 'Anime', '2023'),
+  _FallbackSeed(
+    'The Eminence in Shadow Season 2',
+    MediaType.tv,
+    'Anime',
+    '2023',
+  ),
   _FallbackSeed('Spy x Family Season 3', MediaType.tv, 'Anime', '2025'),
   _FallbackSeed('Mushoku Tensei Season 2', MediaType.tv, 'Anime', '2023'),
   _FallbackSeed('Re: Zero Season 3', MediaType.tv, 'Anime', '2024'),
@@ -1315,6 +1426,27 @@ const _hindiMovieSeeds = <_FallbackSeed>[
   _FallbackSeed('Queen', MediaType.movie, 'Comedy', '2014'),
 ];
 
+const _gujaratiMovieSeeds = <_FallbackSeed>[
+  _FallbackSeed('Chhello Show', MediaType.movie, 'Drama', '2022'),
+  _FallbackSeed('Hellaro', MediaType.movie, 'Drama', '2019'),
+  _FallbackSeed('Wrong Side Raju', MediaType.movie, 'Thriller', '2016'),
+  _FallbackSeed('Love Ni Bhavai', MediaType.movie, 'Romance', '2017'),
+  _FallbackSeed('Shu Thayu?', MediaType.movie, 'Comedy', '2018'),
+  _FallbackSeed('Bey Yaar', MediaType.movie, 'Drama', '2014'),
+  _FallbackSeed('Chello Divas', MediaType.movie, 'Comedy', '2015'),
+  _FallbackSeed('Naadi Dosh', MediaType.movie, 'Drama', '2022'),
+  _FallbackSeed('Fakt Mahilao Maate', MediaType.movie, 'Comedy', '2022'),
+  _FallbackSeed('Vash', MediaType.movie, 'Thriller', '2023'),
+  _FallbackSeed('Karsandas Pay & Use', MediaType.movie, 'Comedy', '2017'),
+  _FallbackSeed('Gujjubhai the Great', MediaType.movie, 'Comedy', '2015'),
+  _FallbackSeed('Gujjubhai Most Wanted', MediaType.movie, 'Comedy', '2018'),
+  _FallbackSeed('Reva', MediaType.movie, 'Drama', '2018'),
+  _FallbackSeed('Sharato Lagu', MediaType.movie, 'Drama', '2018'),
+  _FallbackSeed('Dhunki', MediaType.movie, 'Drama', '2019'),
+  _FallbackSeed('21mu Tiffin', MediaType.movie, 'Drama', '2021'),
+  _FallbackSeed('Raado', MediaType.movie, 'Drama', '2022'),
+];
+
 const _hindiTvSeeds = <_FallbackSeed>[
   _FallbackSeed('Sacred Games', MediaType.tv, 'Crime', '2018'),
   _FallbackSeed('Mirzapur', MediaType.tv, 'Crime', '2018'),
@@ -1338,6 +1470,7 @@ const _hindiTvSeeds = <_FallbackSeed>[
 
 const _hindiOriginalsSeeds = <_FallbackSeed>[
   ..._hindiMovieSeeds,
+  ..._gujaratiMovieSeeds,
   ..._hindiTvSeeds,
 ];
 
@@ -1351,7 +1484,12 @@ const _hindiDubbedSeeds = <_FallbackSeed>[
   _FallbackSeed('Top Gun: Maverick', MediaType.movie, 'Action', '2022'),
   _FallbackSeed('Fast X', MediaType.movie, 'Action', '2023'),
   _FallbackSeed('John Wick: Chapter 4', MediaType.movie, 'Action', '2023'),
-  _FallbackSeed('Mission: Impossible - Dead Reckoning', MediaType.movie, 'Action', '2023'),
+  _FallbackSeed(
+    'Mission: Impossible - Dead Reckoning',
+    MediaType.movie,
+    'Action',
+    '2023',
+  ),
   _FallbackSeed('Oppenheimer', MediaType.movie, 'Drama', '2023'),
   _FallbackSeed('Dune: Part Two', MediaType.movie, 'Sci-Fi', '2024'),
   _FallbackSeed('Deadpool & Wolverine', MediaType.movie, 'Action', '2024'),
@@ -1440,7 +1578,12 @@ const _crimeMysterySeeds = <_FallbackSeed>[
   _FallbackSeed('The Sinner', MediaType.tv, 'Crime', '2017'),
   _FallbackSeed('Dark', MediaType.tv, 'Mystery', '2017'),
   _FallbackSeed('Severance', MediaType.tv, 'Mystery', '2022'),
-  _FallbackSeed('Only Murders in the Building', MediaType.tv, 'Mystery', '2021'),
+  _FallbackSeed(
+    'Only Murders in the Building',
+    MediaType.tv,
+    'Mystery',
+    '2021',
+  ),
 ];
 
 const _comedyFallbackSeeds = <_FallbackSeed>[
@@ -1508,7 +1651,12 @@ const _sciFiFallbackSeeds = <_FallbackSeed>[
   _FallbackSeed('The Expanse', MediaType.tv, 'Sci-Fi', '2015'),
   _FallbackSeed('Altered Carbon', MediaType.tv, 'Sci-Fi', '2018'),
   _FallbackSeed('Lost in Space', MediaType.tv, 'Sci-Fi', '2018'),
-  _FallbackSeed('Star Trek: Strange New Worlds', MediaType.tv, 'Sci-Fi', '2022'),
+  _FallbackSeed(
+    'Star Trek: Strange New Worlds',
+    MediaType.tv,
+    'Sci-Fi',
+    '2022',
+  ),
   _FallbackSeed('Halo', MediaType.tv, 'Sci-Fi', '2022'),
   _FallbackSeed('Raised by Wolves', MediaType.tv, 'Sci-Fi', '2020'),
   _FallbackSeed('Silo', MediaType.tv, 'Sci-Fi', '2023'),
@@ -1522,9 +1670,24 @@ const _familyFallbackSeeds = <_FallbackSeed>[
   _FallbackSeed('Turning Red', MediaType.movie, 'Family', '2022'),
   _FallbackSeed('Soul', MediaType.movie, 'Family', '2020'),
   _FallbackSeed('Coco', MediaType.movie, 'Family', '2017'),
-  _FallbackSeed('The Mitchells vs. the Machines', MediaType.movie, 'Family', '2021'),
-  _FallbackSeed('Puss in Boots: The Last Wish', MediaType.movie, 'Family', '2022'),
-  _FallbackSeed('Spider-Man: Across the Spider-Verse', MediaType.movie, 'Animation', '2023'),
+  _FallbackSeed(
+    'The Mitchells vs. the Machines',
+    MediaType.movie,
+    'Family',
+    '2021',
+  ),
+  _FallbackSeed(
+    'Puss in Boots: The Last Wish',
+    MediaType.movie,
+    'Family',
+    '2022',
+  ),
+  _FallbackSeed(
+    'Spider-Man: Across the Spider-Verse',
+    MediaType.movie,
+    'Animation',
+    '2023',
+  ),
   _FallbackSeed('Elemental', MediaType.movie, 'Family', '2023'),
   _FallbackSeed('Wish', MediaType.movie, 'Family', '2023'),
   _FallbackSeed('The Wild Robot', MediaType.movie, 'Family', '2024'),

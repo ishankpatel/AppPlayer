@@ -72,6 +72,31 @@
   -->
   <script src="flutter_bootstrap.js" async></script>
   <script>
+    // StreamVault is served as an online-first LAN/Cloudflare app. Flutter's
+    // generated service worker can keep old CanvasKit builds alive on iOS, so
+    // proactively unregister it and clear old Flutter caches.
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations()
+        .then(function (registrations) {
+          registrations.forEach(function (registration) {
+            registration.unregister();
+          });
+        })
+        .catch(function () {});
+    }
+    if ('caches' in window) {
+      caches.keys()
+        .then(function (keys) {
+          keys.forEach(function (key) {
+            if (key.indexOf('flutter-app-cache') === 0 ||
+                key.indexOf('streamvault') !== -1) {
+              caches.delete(key);
+            }
+          });
+        })
+        .catch(function () {});
+    }
+
     // Hide the splash once Flutter has rendered the first frame.
     window.addEventListener('flutter-first-frame', function () {
       var s = document.getElementById('splash');

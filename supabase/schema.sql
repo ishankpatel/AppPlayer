@@ -7,6 +7,8 @@ create extension if not exists pgcrypto;
 
 -- One household can share a simple Supabase auth account, while profiles
 -- represent family members and store synced playback preferences.
+-- Real-Debrid API tokens are intentionally not stored in Supabase; the app
+-- keeps that credential per-device only.
 create table if not exists profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   display_name text not null,
@@ -74,21 +76,31 @@ alter table continue_watching enable row level security;
 alter table favorites enable row level security;
 
 create policy "Users can view own profile" on profiles
-  for select using (auth.uid() = id);
+  for select to authenticated using ((select auth.uid()) = id);
 create policy "Users can insert own profile" on profiles
-  for insert with check (auth.uid() = id);
+  for insert to authenticated with check ((select auth.uid()) = id);
 create policy "Users can update own profile" on profiles
-  for update using (auth.uid() = id);
+  for update to authenticated
+  using ((select auth.uid()) = id)
+  with check ((select auth.uid()) = id);
 
 create policy "Users manage own watchlist" on watchlist
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  for all to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
 create policy "Users manage own continue watching" on continue_watching
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  for all to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
 create policy "Users manage own favorites" on favorites
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  for all to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
 
 create or replace function touch_updated_at()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql
+set search_path = public
+as $$
 begin
   new.updated_at = now();
   return new;
@@ -116,7 +128,9 @@ create trigger favorites_touch_updated_at
   for each row execute procedure touch_updated_at();
 
 create or replace function handle_new_user()
-returns trigger language plpgsql security definer as $$
+returns trigger language plpgsql security definer
+set search_path = public
+as $$
 begin
   insert into profiles (id, display_name)
   values (new.id, coalesce(new.raw_user_meta_data->>'display_name', 'Family Member'))
@@ -129,3 +143,6 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure handle_new_user();
+
+revoke execute on function public.handle_new_user() from public;
+revoke execute on function public.touch_updated_at() from public;

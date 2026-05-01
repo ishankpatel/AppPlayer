@@ -50,11 +50,9 @@ final realDebridRemoteProvider = Provider<RealDebridRemoteDataSource>((ref) {
   return RealDebridRemoteDataSource(ref.watch(dioProvider));
 });
 
-class RealDebridSettingsNotifier
-    extends AsyncNotifier<RealDebridSettings> {
+class RealDebridSettingsNotifier extends AsyncNotifier<RealDebridSettings> {
   RealDebridStore get _store => ref.read(realDebridStoreProvider);
-  RealDebridRemoteDataSource get _remote =>
-      ref.read(realDebridRemoteProvider);
+  RealDebridRemoteDataSource get _remote => ref.read(realDebridRemoteProvider);
 
   @override
   Future<RealDebridSettings> build() async {
@@ -89,11 +87,7 @@ class RealDebridSettingsNotifier
       return false;
     }
     state = AsyncValue.data(
-      _current().copyWith(
-        apiKey: trimmed,
-        validating: true,
-        clearError: true,
-      ),
+      _current().copyWith(apiKey: trimmed, validating: true, clearError: true),
     );
     try {
       final next = await _validate(trimmed, persist: true);
@@ -117,8 +111,10 @@ class RealDebridSettingsNotifier
     state = const AsyncValue.data(RealDebridSettings());
   }
 
-  Future<RealDebridSettings> _validate(String key,
-      {required bool persist}) async {
+  Future<RealDebridSettings> _validate(
+    String key, {
+    required bool persist,
+  }) async {
     try {
       final user = await _remote.me(key);
       final traffic = await _remote
@@ -143,5 +139,5 @@ class RealDebridSettingsNotifier
 
 final realDebridSettingsProvider =
     AsyncNotifierProvider<RealDebridSettingsNotifier, RealDebridSettings>(
-  RealDebridSettingsNotifier.new,
-);
+      RealDebridSettingsNotifier.new,
+    );

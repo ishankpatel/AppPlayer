@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class RealDebridUser {
   const RealDebridUser({
@@ -57,7 +58,8 @@ class RealDebridException implements Exception {
   final int? errorCode;
 
   @override
-  String toString() => 'RealDebridException($message, status=$statusCode, code=$errorCode)';
+  String toString() =>
+      'RealDebridException($message, status=$statusCode, code=$errorCode)';
 }
 
 /// Minimal Real-Debrid REST client. Covers the surfaces we need:
@@ -70,7 +72,10 @@ class RealDebridRemoteDataSource {
 
   final Dio _dio;
 
-  static const _baseUrl = 'https://api.real-debrid.com/rest/1.0';
+  static const _nativeBaseUrl = 'https://api.real-debrid.com/rest/1.0';
+  static const _webProxyBaseUrl = '/api/real-debrid/rest/1.0';
+
+  String get _baseUrl => kIsWeb ? _webProxyBaseUrl : _nativeBaseUrl;
 
   Future<RealDebridUser> me(String apiKey) async {
     final res = await _get<Map<String, dynamic>>(apiKey, '/user');
@@ -221,6 +226,8 @@ class RealDebridRemoteDataSource {
         'Could not reach api.real-debrid.com. Check your network.',
       );
     }
-    return RealDebridException(e.message ?? 'Network error talking to Real-Debrid');
+    return RealDebridException(
+      e.message ?? 'Network error talking to Real-Debrid',
+    );
   }
 }

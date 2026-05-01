@@ -30,6 +30,25 @@ class TvSeasonSummary {
       overview: (json['overview'] as String?) ?? '',
     );
   }
+
+  factory TvSeasonSummary.fromEpisodeGroup(
+    int seasonNumber,
+    List<Map<String, dynamic>> episodes,
+  ) {
+    final firstAirDates =
+        episodes
+            .map((episode) => episode['firstAired'] as String?)
+            .where((value) => value != null && value.isNotEmpty)
+            .cast<String>()
+            .toList()
+          ..sort();
+    return TvSeasonSummary(
+      seasonNumber: seasonNumber,
+      name: seasonNumber == 0 ? 'Specials' : 'Season $seasonNumber',
+      episodeCount: episodes.length,
+      airDate: firstAirDates.isEmpty ? null : firstAirDates.first,
+    );
+  }
 }
 
 class TvDetails {
@@ -96,6 +115,47 @@ class TvDetails {
           .toList(),
     );
   }
+
+  factory TvDetails.fromCinemeta(MediaItem item, Map<String, dynamic> json) {
+    final videos = ((json['videos'] as List?) ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .toList();
+    final grouped = <int, List<Map<String, dynamic>>>{};
+    for (final video in videos) {
+      final season = (video['season'] as num? ?? 0).toInt();
+      if (season < 1) continue;
+      grouped.putIfAbsent(season, () => <Map<String, dynamic>>[]).add(video);
+    }
+    final seasons =
+        grouped.entries
+            .map(
+              (entry) =>
+                  TvSeasonSummary.fromEpisodeGroup(entry.key, entry.value),
+            )
+            .toList()
+          ..sort((a, b) => a.seasonNumber.compareTo(b.seasonNumber));
+    return TvDetails(
+      tmdbId: item.tmdbId,
+      name: (json['name'] as String?) ?? item.title,
+      overview:
+          (json['description'] as String?) ??
+          (json['overview'] as String?) ??
+          item.overview,
+      seasons: seasons,
+      numberOfEpisodes: seasons.fold<int>(
+        0,
+        (sum, season) => sum + season.episodeCount,
+      ),
+      numberOfSeasons: seasons.length,
+      posterPath: json['poster'] as String? ?? item.posterPath,
+      backdropPath: json['background'] as String? ?? item.backdropPath,
+      firstAirDate: json['released'] as String?,
+      status: (json['status'] as String?) ?? '',
+      genres: ((json['genres'] as List?) ?? const [])
+          .whereType<String>()
+          .toList(),
+    );
+  }
 }
 
 class EpisodeDetails {
@@ -134,11 +194,30 @@ class EpisodeDetails {
       voteAverage: ((json['vote_average'] ?? 0) as num).toDouble(),
     );
   }
+
+  factory EpisodeDetails.fromCinemeta(Map<String, dynamic> json) {
+    return EpisodeDetails(
+      seasonNumber: (json['season'] as num? ?? 1).toInt(),
+      episodeNumber: (json['number'] as num? ?? json['episode'] as num? ?? 1)
+          .toInt(),
+      title: (json['name'] as String?) ?? 'Episode',
+      overview:
+          (json['overview'] as String?) ??
+          (json['description'] as String?) ??
+          '',
+      airDate: json['firstAired'] as String? ?? json['released'] as String?,
+      runtimeMinutes: null,
+      stillPath: json['thumbnail'] as String?,
+      voteAverage: double.tryParse((json['rating'] ?? '').toString()) ?? 0,
+    );
+  }
 }
 
 /// Cached per tvId — survives navigation. Only fetched once.
-final tvDetailsProvider =
-    FutureProvider.family<TvDetails?, int>((ref, tvId) async {
+final tvDetailsProvider = FutureProvider.family<TvDetails?, int>((
+  ref,
+  tvId,
+) async {
   ref.keepAlive();
   final tmdb = ref.read(tmdbRemoteProvider);
   if (!tmdb.isConfigured) return null;
@@ -147,41 +226,140 @@ final tvDetailsProvider =
   return TvDetails.fromTmdb(raw);
 });
 
+class TvDetailsKey {
+  const TvDetailsKey({
+    required this.tmdbId,
+    required this.title,
+    this.imdbId,
+    this.mediaType = MediaType.tv,
+    this.overview = '',
+    this.posterPath,
+    this.backdropPath,
+  });
+
+  final int tmdbId;
+  final String title;
+  final String? imdbId;
+  final MediaType mediaType;
+  final String overview;
+  final String? posterPath;
+  final String? backdropPath;
+
+  factory TvDetailsKey.fromMedia(MediaItem media) {
+    return TvDetailsKey(
+      tmdbId: media.tmdbId,
+      title: media.title,
+      imdbId: media.imdbId,
+      mediaType: media.mediaType,
+      overview: media.overview,
+      posterPath: media.posterPath,
+      backdropPath: media.backdropPath,
+    );
+  }
+
+  MediaItem get fallbackItem {
+    return MediaItem(
+      tmdbId: tmdbId,
+      title: title,
+      mediaType: mediaType,
+      genre: 'Series',
+      releaseYear: '',
+      overview: overview,
+      voteAverage: 0,
+      posterPath: posterPath,
+      backdropPath: backdropPath,
+      imdbId: imdbId,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is TvDetailsKey &&
+        tmdbId == other.tmdbId &&
+        imdbId == other.imdbId &&
+        mediaType == other.mediaType;
+  }
+
+  @override
+  int get hashCode => Object.hash(tmdbId, imdbId, mediaType);
+}
+
+final tvDetailsForMediaProvider =
+    FutureProvider.family<TvDetails?, TvDetailsKey>((ref, key) async {
+      ref.keepAlive();
+      final tmdb = ref.read(tmdbRemoteProvider);
+      if (tmdb.isConfigured) {
+        final raw = await tmdb.tvDetails(key.tmdbId);
+        if (raw != null) return TvDetails.fromTmdb(raw);
+      }
+
+      final imdbId = key.imdbId ?? '';
+      if (imdbId.isEmpty) return null;
+      final raw = await ref
+          .read(cinemetaRemoteProvider)
+          .meta(imdbId: imdbId, mediaType: MediaType.tv);
+      if (raw == null) return null;
+      return TvDetails.fromCinemeta(key.fallbackItem, raw);
+    });
+
 class SeasonKey {
-  const SeasonKey(this.tvId, this.seasonNumber);
+  const SeasonKey(this.tvId, this.seasonNumber, {this.imdbId});
   final int tvId;
   final int seasonNumber;
+  final String? imdbId;
 
   @override
   bool operator ==(Object other) =>
       other is SeasonKey &&
       tvId == other.tvId &&
-      seasonNumber == other.seasonNumber;
+      seasonNumber == other.seasonNumber &&
+      imdbId == other.imdbId;
 
   @override
-  int get hashCode => Object.hash(tvId, seasonNumber);
+  int get hashCode => Object.hash(tvId, seasonNumber, imdbId);
 }
 
-final tvSeasonProvider =
-    FutureProvider.family<List<EpisodeDetails>, SeasonKey>((ref, key) async {
-  ref.keepAlive();
-  final tmdb = ref.read(tmdbRemoteProvider);
-  if (!tmdb.isConfigured) return const [];
-  final raw = await tmdb.tvSeason(key.tvId, key.seasonNumber);
-  if (raw == null) return const [];
-  final episodes = (raw['episodes'] as List? ?? const [])
-      .whereType<Map<String, dynamic>>()
-      .map(EpisodeDetails.fromTmdb)
-      .toList();
-  return episodes;
-});
+final tvSeasonProvider = FutureProvider.family<List<EpisodeDetails>, SeasonKey>(
+  (ref, key) async {
+    ref.keepAlive();
+    final tmdb = ref.read(tmdbRemoteProvider);
+    if (tmdb.isConfigured) {
+      final raw = await tmdb.tvSeason(key.tvId, key.seasonNumber);
+      if (raw != null) {
+        final episodes = (raw['episodes'] as List? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(EpisodeDetails.fromTmdb)
+            .toList();
+        if (episodes.isNotEmpty) return episodes;
+      }
+    }
+
+    final imdbId = key.imdbId ?? '';
+    if (imdbId.isEmpty) return const [];
+    final raw = await ref
+        .read(cinemetaRemoteProvider)
+        .meta(imdbId: imdbId, mediaType: MediaType.tv);
+    if (raw == null) return const [];
+    final episodes =
+        ((raw['videos'] as List?) ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .where((episode) {
+              final season = (episode['season'] as num? ?? 0).toInt();
+              return season == key.seasonNumber;
+            })
+            .map(EpisodeDetails.fromCinemeta)
+            .toList()
+          ..sort((a, b) => a.episodeNumber.compareTo(b.episodeNumber));
+    return episodes;
+  },
+);
 
 /// Overall detail bundle (movie/tv). Used to fetch richer overview/runtime
 /// text when the seed item only has minimal data.
 final mediaDetailsProvider =
     FutureProvider.family<Map<String, dynamic>?, MediaItem>((ref, item) async {
-  ref.keepAlive();
-  final tmdb = ref.read(tmdbRemoteProvider);
-  if (!tmdb.isConfigured) return null;
-  return tmdb.details(tmdbId: item.tmdbId, mediaType: item.mediaType);
-});
+      ref.keepAlive();
+      final tmdb = ref.read(tmdbRemoteProvider);
+      if (!tmdb.isConfigured) return null;
+      return tmdb.details(tmdbId: item.tmdbId, mediaType: item.mediaType);
+    });

@@ -219,8 +219,7 @@ class TmdbRemoteDataSource {
     );
     return _items(response)
         .where(
-          (item) =>
-              item['media_type'] == 'movie' || item['media_type'] == 'tv',
+          (item) => item['media_type'] == 'movie' || item['media_type'] == 'tv',
         )
         .map(MediaItem.fromTmdb)
         .toList();
@@ -270,9 +269,9 @@ class TmdbRemoteDataSource {
       '${ApiConstants.tmdbBaseUrl}$path',
       queryParameters: queryParameters,
     );
-    return _items(
-      response,
-    ).map((item) => MediaItem.fromTmdb(item, fallbackType: fallbackType)).toList();
+    return _items(response)
+        .map((item) => MediaItem.fromTmdb(item, fallbackType: fallbackType))
+        .toList();
   }
 
   void _putIf(Map<String, dynamic> map, String key, Object? value) {

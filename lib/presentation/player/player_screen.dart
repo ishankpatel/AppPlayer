@@ -10,6 +10,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/utils/image_utils.dart';
 import '../../providers.dart';
 import '../common/smart_network_image.dart';
+import '../home/home_provider.dart';
 
 class PlayerScreen extends ConsumerStatefulWidget {
   const PlayerScreen({
@@ -46,6 +47,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
   DateTime _lastSavedAt = DateTime.fromMillisecondsSinceEpoch(0);
+  String? _preferredSubtitleLanguage;
+  String? _preferredAudioLanguage;
 
   @override
   void initState() {
@@ -105,6 +108,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           durationSeconds: _duration.inSeconds,
           seasonNumber: widget.seasonNumber,
           episodeNumber: widget.episodeNumber,
+          preferredSubtitleLang: _preferredSubtitleLanguage,
+          preferredAudioLang: _preferredAudioLanguage,
         );
     await ref
         .read(syncRepositoryProvider)
@@ -115,9 +120,21 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           positionSeconds: _position.inSeconds,
           durationSeconds: _duration.inSeconds,
           posterPath: widget.posterPath,
+          backdropPath: widget.backdropPath,
           seasonNumber: widget.seasonNumber,
           episodeNumber: widget.episodeNumber,
+          preferredSubtitleLang: _preferredSubtitleLanguage,
+          preferredAudioLang: _preferredAudioLanguage,
         );
+    if (_preferredSubtitleLanguage != null || _preferredAudioLanguage != null) {
+      await ref
+          .read(syncRepositoryProvider)
+          .syncProfilePreferences(
+            preferredSubtitleLang: _preferredSubtitleLanguage,
+            preferredAudioLang: _preferredAudioLanguage,
+          );
+    }
+    ref.invalidate(continueWatchingProvider);
   }
 
   @override
@@ -228,7 +245,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           selected: _player.state.track.audio,
           labelFor: _trackLabel,
           onSelected: (track) {
+            _preferredAudioLanguage = _trackLanguage(track);
             _player.setAudioTrack(track);
+            unawaited(_saveProgress(force: true));
             Navigator.of(context).pop();
           },
         );
@@ -252,7 +271,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           selected: _player.state.track.subtitle,
           labelFor: _trackLabel,
           onSelected: (track) {
+            _preferredSubtitleLanguage = _trackLanguage(track);
             _player.setSubtitleTrack(track);
+            unawaited(_saveProgress(force: true));
             Navigator.of(context).pop();
           },
         );
@@ -272,6 +293,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           (language == null || language.isEmpty))
         'Track ${track.id}',
     ].join('  ');
+  }
+
+  String? _trackLanguage(dynamic track) {
+    if (track.id == 'no') return null;
+    final language = track.language as String?;
+    if (language != null && language.isNotEmpty) return language;
+    final title = track.title as String?;
+    if (title != null && title.isNotEmpty) return title;
+    return null;
   }
 
   void _showMessage(String message) {
@@ -355,6 +385,8 @@ class _NoStreamPlaceholder extends StatelessWidget {
           SmartNetworkImage(
             imageUrl: artworkUrl,
             fit: BoxFit.cover,
+            cacheWidth: MediaQuery.sizeOf(context).width,
+            cacheHeight: MediaQuery.sizeOf(context).height,
             fallback: const _PlayerArtFallback(),
           )
         else
